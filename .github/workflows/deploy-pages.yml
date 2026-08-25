@@ -31,7 +31,7 @@ jobs:
         run: npm run build
         env:
           VITE_DEMO_MODE: 'true'
-          VITE_BASE_PATH: /local_llm_lp/
+          VITE_BASE_PATH: /alteor-demo/
           VITE_DEMO_PASSWORD_HASH: ${{ secrets.DEMO_PASSWORD_HASH }}
       - name: Configure Pages
         uses: actions/configure-pages@v5
