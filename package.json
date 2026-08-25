@@ -1,13 +1,16 @@
 {
-  "name": "local_llm_lp",
+  "name": "alteor-rag",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend": ".venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8080",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:backend": ".venv/bin/python -m pytest backend/tests -q",
+    "check": "npm run lint && npm run build && npm run test:backend"
   },
   "dependencies": {
     "budoux": "^0.8.4",

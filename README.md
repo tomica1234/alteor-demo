@@ -1,75 +1,72 @@
-# React + TypeScript + Vite
+# Alteor Case Workspace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+法律事務所・探偵事務所向けの案件ワークスペースです。個人ダッシュボードから担当案件を選び、案件ごとに「資料登録 → ドラフト作成／整合性確認 → 人の修正・確認」を操作できます。
 
-Currently, two official plugins are available:
+この版は実際のLLM、クラウドAI、外部OCR、音声認識サービスには接続しません。結果は固定ロジックによるモックです。実案件情報は入力しないでください。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+現在はLPを含めず、起動すると案件ワークスペースが直接開きます。
 
-## React Compiler
+## 検証対象
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- 書類ドラフトを作成し、担当者が修正・保存する流れ
+- 書面と証拠資料の数字、日付、氏名、引用、証拠番号を確認する流れ
+- 根拠資料へ戻って原文を確認する体験
+- 人による確認、承認、操作履歴の見せ方
 
-## Expanding the ESLint configuration
+## 次フェーズ候補
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- スキャンPDFのOCR
+- 銀行取引明細の表・Excel化
+- 面談・通話記録の要約とアクション抽出
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## セットアップ
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm install
+/opt/homebrew/bin/python3.13 -m venv .venv
+.venv/bin/python -m pip install -e './backend[dev]'
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 起動
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+zsh scripts/start_alteor.sh
 ```
+
+- 画面: `http://127.0.0.1:5174/`
+- API: `http://127.0.0.1:8081/docs`
+
+モデルサーバーやモデルファイルは不要です。
+
+## 個別起動
+
+```bash
+ALTEOR_OFFLINE_MODE=true ALTEOR_SEED_DEMO_DATA=true \
+  .venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8081
+
+npm run dev -- --host 127.0.0.1 --port 5174
+```
+
+## 公開時のパスワード
+
+公開する場合は、バックエンドに共有パスワードを設定してください。パスワードを設定すると、案件データを返すAPIはログイン済みのブラウザからのみ利用できます。認証状態はHttpOnly Cookieで保持します。
+
+```bash
+export ALTEOR_ACCESS_PASSWORD='公開用の長いパスワード'
+export ALTEOR_SESSION_SECRET='十分に長いランダムな文字列'
+export ALTEOR_SECURE_COOKIES=true
+export ALTEOR_OFFLINE_MODE=true
+export ALTEOR_SEED_DEMO_DATA=false
+```
+
+本番公開では、`dist/`を静的配信し、同じホストの`/api`をUvicornへリバースプロキシしてください。Viteの開発サーバーは公開用には使用しません。TLS（HTTPS）を有効にし、実案件情報を入れる前にバックアップとアクセスログの運用を決めてください。
+
+`ALTEOR_ACCESS_PASSWORD`が未設定の場合、認証は無効です。公開環境では必ず設定してください。
+
+## 検証
+
+```bash
+npm run check
+```
+
+フロントエンドのLint・ビルドと、バックエンドのテストを実行します。

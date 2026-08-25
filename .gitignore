@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +25,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Alteor local runtime
+.venv/
+backend/data/*.sqlite3
+backend/data/*.sqlite3-*
+backend/data/*.db
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+backend/*.egg-info/
+__pycache__/
+.pytest_cache/
+*.pyc
