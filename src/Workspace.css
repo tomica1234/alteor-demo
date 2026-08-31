@@ -6,12 +6,17 @@
   --wk-tertiary: #5b6168;
   --wk-bg: #f5f6f7;
   --wk-surface: #ffffff;
+  --wk-surface-subtle: #f7f8f9;
   --wk-solid: #ffffff;
+  --wk-accent-soft: #e8f1f8;
   --wk-line: #c8cdd2;
   --wk-soft-line: #e1e4e7;
   --wk-green: #237a57;
+  --wk-green-soft: #e6f3eb;
   --wk-orange: #a85f00;
+  --wk-orange-soft: #fff4d6;
   --wk-red: #c00;
+  --wk-red-soft: #fce8eb;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -131,8 +136,8 @@
 .wk-access-card > p:not(.wk-eyebrow) { margin: 0.8rem 0 1.7rem; color: var(--wk-secondary); font-size: 0.88rem; line-height: 1.7; }
 .wk-access-card form { display: grid; gap: 0.55rem; }
 .wk-access-card label { color: var(--wk-secondary); font-size: 0.75rem; font-weight: 650; }
-.wk-access-card input { min-height: 2.9rem; padding: 0 0.8rem; border: 1px solid rgba(60, 60, 67, 0.2); border-radius: 0.7rem; background: rgba(255, 255, 255, 0.75); color: var(--wk-ink); }
-.wk-access-card input:focus { border-color: rgba(0, 122, 255, 0.65); outline: 0.2rem solid rgba(0, 122, 255, 0.16); }
+.wk-access-card input { min-height: 2.9rem; padding: 0 0.8rem; border: 1px solid var(--wk-line); border-radius: 0.25rem; background: #fff; color: var(--wk-ink); }
+.wk-access-card input:focus { border-color: var(--wk-accent); outline: 0.2rem solid #e8f1f8; }
 .wk-access-card button { min-height: 2.9rem; margin-top: 0.55rem; }
 .wk-access-error { color: var(--wk-red); font-size: 0.78rem; }
 
@@ -3342,6 +3347,297 @@
 .wk-scrim {
   display: none;
   z-index: 11;
+}
+
+/* Shared visual language for the work areas. */
+.wk-shell button:active:not(:disabled) {
+  transform: none;
+}
+
+.wk-shell .wk-dashboard-stats article > span,
+.wk-shell .wk-dashboard-empty > span,
+.wk-shell .wk-workflow-grid > button > span,
+.wk-shell .wk-latest-list article > span,
+.wk-shell .wk-doc-name > i,
+.wk-shell .wk-task-choice b,
+.wk-shell .wk-citation-focus,
+.wk-shell .wk-answer-blocks > section,
+.wk-shell .wk-findings > article,
+.wk-shell .wk-sources button,
+.wk-shell .wk-approval-list dl div,
+.wk-shell .wk-document-picker,
+.wk-shell .wk-workflow-empty {
+  border-radius: 0.25rem;
+}
+
+.wk-shell .wk-dashboard-stats article > span.blue,
+.wk-shell .wk-dashboard-stats article > span.violet,
+.wk-shell .wk-dashboard-empty > span,
+.wk-shell .wk-workflow-grid > button > span,
+.wk-shell .wk-latest-list article > span,
+.wk-shell .wk-doc-name > i,
+.wk-shell .wk-task-choice b,
+.wk-shell .wk-citation-focus,
+.wk-shell .wk-sources button > b {
+  color: var(--wk-accent);
+  background: var(--wk-accent-soft);
+}
+
+.wk-shell .wk-dashboard-stats article > span.orange,
+.wk-shell .wk-workflow-empty,
+.wk-shell .wk-findings > article,
+.wk-shell .wk-approval-badge {
+  background: var(--wk-orange-soft);
+}
+
+.wk-shell .wk-workflow-empty,
+.wk-shell .wk-findings > article {
+  color: var(--wk-ink);
+}
+
+.wk-shell .wk-dashboard-stats article > span.orange,
+.wk-shell .wk-approval-badge {
+  color: var(--wk-orange);
+}
+
+.wk-shell .wk-workflow-grid > button,
+.wk-shell .wk-task-choice > button,
+.wk-shell .wk-document-picker,
+.wk-shell .wk-latest-list article,
+.wk-shell .wk-answer-blocks > section,
+.wk-shell .wk-sources button,
+.wk-shell .wk-approval-list dl div,
+.wk-shell .wk-generation,
+.wk-shell .wk-filter-tabs {
+  background: var(--wk-surface-subtle);
+  box-shadow: none;
+}
+
+.wk-shell .wk-workflow-grid > button,
+.wk-shell .wk-task-choice > button {
+  border-color: var(--wk-soft-line);
+}
+
+.wk-shell .wk-workflow-grid > button:hover,
+.wk-shell .wk-task-choice > button:hover {
+  background: #fff;
+  box-shadow: 0 0.15rem 0.4rem rgba(0, 0, 0, 0.08);
+}
+
+.wk-shell .wk-task-choice > button.active {
+  border-color: #8fb8d2;
+  background: var(--wk-accent-soft);
+  box-shadow: inset 0 0 0 1px #b5cfe0;
+}
+
+.wk-shell .wk-findings > article.resolved,
+.wk-shell .wk-approval-badge.approved,
+.wk-shell .wk-approval-badge.executed {
+  color: var(--wk-green);
+  background: var(--wk-green-soft);
+}
+
+.wk-shell .wk-findings > article.ignored {
+  background: #f0f1f2;
+}
+
+.wk-shell .wk-ai-message > span,
+.wk-shell .wk-chat-welcome > span {
+  color: #fff;
+  background: var(--wk-accent);
+  box-shadow: none;
+}
+
+.wk-shell .wk-chat-window {
+  background: var(--wk-bg);
+}
+
+.wk-shell .wk-chat-header > span i {
+  background: var(--wk-green);
+  box-shadow: none;
+}
+
+.wk-shell .wk-ai-bubble,
+.wk-shell .wk-generation {
+  border-color: var(--wk-line);
+  border-radius: 0.25rem;
+}
+
+.wk-shell .wk-ai-bubble {
+  background: #fff;
+  box-shadow: none;
+}
+
+.wk-shell .wk-user-message > div {
+  border-radius: 0.25rem;
+  background: var(--wk-accent);
+  box-shadow: none;
+}
+
+.wk-shell .wk-starter-prompts button,
+.wk-shell .wk-suggestions button,
+.wk-shell .wk-message-actions button,
+.wk-shell .wk-draft-history button,
+.wk-shell .wk-findings article > footer button,
+.wk-shell .wk-row-actions button,
+.wk-shell .wk-approval-list footer > button:not(.wk-primary) {
+  border-radius: 0.25rem;
+}
+
+.wk-shell .wk-starter-prompts button,
+.wk-shell .wk-suggestions button {
+  background: #fff;
+}
+
+.wk-shell .wk-sources button:hover,
+.wk-shell .wk-document-picker label:hover {
+  background: var(--wk-accent-soft);
+}
+
+.wk-shell .wk-message-actions button:hover,
+.wk-shell .wk-message-actions button.selected,
+.wk-shell .wk-findings article > footer button.active,
+.wk-shell .wk-row-actions button:hover {
+  color: var(--wk-accent);
+  background: var(--wk-accent-soft);
+}
+
+.wk-shell .wk-approval-state {
+  border-radius: 0.25rem;
+  color: var(--wk-green);
+  background: var(--wk-green-soft);
+}
+
+.wk-shell .wk-approval-state.rejected,
+.wk-shell .wk-approval-badge.rejected {
+  color: var(--wk-red);
+  background: var(--wk-red-soft);
+}
+
+.wk-shell .wk-composer,
+.wk-shell .wk-chat-header {
+  background: #fff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.wk-shell .wk-composer-box,
+.wk-shell .wk-filter-tabs,
+.wk-shell .wk-audit-toolbar label,
+.wk-shell .wk-new-case-form input,
+.wk-shell .wk-new-case-form textarea,
+.wk-shell .wk-workflow-fields input,
+.wk-shell .wk-workflow-fields select,
+.wk-shell .wk-doc-toolbar select,
+.wk-shell .wk-case-select select,
+.wk-shell .wk-user-select select,
+.wk-shell .wk-draft-editor {
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: none;
+}
+
+.wk-shell .wk-composer-box:focus-within,
+.wk-shell .wk-access-card input:focus {
+  border-color: var(--wk-accent);
+  box-shadow: 0 0 0 0.2rem var(--wk-accent-soft);
+}
+
+.wk-shell .wk-filter-tabs {
+  padding: 0.2rem;
+  border: 1px solid var(--wk-line);
+}
+
+.wk-shell .wk-filter-tabs button {
+  border-radius: 0.2rem;
+}
+
+.wk-shell .wk-filter-tabs button.active {
+  color: #003b64;
+  background: var(--wk-accent-soft);
+  box-shadow: none;
+}
+
+.wk-shell .wk-role-info,
+.wk-shell .wk-inline-error,
+.wk-shell .wk-global-error {
+  border-radius: 0.25rem;
+}
+
+.wk-shell .wk-role-info {
+  color: #003b64;
+  background: var(--wk-accent-soft);
+}
+
+.wk-shell .wk-inline-error {
+  color: #8b1e2d;
+  background: var(--wk-red-soft);
+}
+
+.wk-shell .wk-global-error {
+  border: 1px solid #e0aeb6;
+  color: #8b1e2d;
+  background: #fff;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+  backdrop-filter: none;
+}
+
+.wk-shell .wk-doc-toolbar.drag-active {
+  background: var(--wk-accent-soft);
+  box-shadow: inset 0 0 0 2px var(--wk-accent);
+}
+
+.wk-shell .wk-doc-stats span,
+.wk-shell .wk-kind-tag {
+  background: #f0f2f4;
+}
+
+.wk-shell .wk-status-dot.ready i {
+  background: var(--wk-green);
+}
+
+.wk-shell .wk-status-dot.failed i {
+  background: var(--wk-red);
+}
+
+.wk-shell .wk-audit-table th {
+  color: var(--wk-ink);
+  background: #f0f2f4;
+}
+
+.wk-shell .wk-audit-table tbody tr:hover,
+.wk-shell .wk-doc-table tbody tr:hover {
+  background: var(--wk-accent-soft);
+}
+
+.wk-shell .wk-modal,
+.wk-shell .wk-document-drawer {
+  border-color: var(--wk-line);
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.16);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.wk-shell .wk-modal > header > button,
+.wk-shell .wk-document-drawer > header > button {
+  border-radius: 0.25rem;
+  background: #f0f2f4;
+}
+
+.wk-shell .wk-citation-focus {
+  border: 1px solid #b5cfe0;
+}
+
+.wk-shell .wk-document-chunks article {
+  border-radius: 0.25rem;
+  background: var(--wk-surface-subtle);
+}
+
+.wk-shell .wk-document-chunks article.active {
+  border-color: var(--wk-accent);
+  box-shadow: inset 0 0 0 1px var(--wk-accent);
 }
 
 @media (max-width: 1180px) {
