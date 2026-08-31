@@ -504,13 +504,18 @@
 .wk-sidebar .wk-tree-heading-row > button {
   display: grid;
   width: 1.75rem;
+  min-width: 1.75rem;
   height: 1.75rem;
+  min-height: 1.75rem;
   place-items: center;
+  padding: 0;
   border: 0;
   border-radius: 0.25rem;
   color: var(--wk-accent);
   background: transparent;
   font-size: 1rem;
+  line-height: 1;
+  text-align: center;
 }
 
 .wk-sidebar .wk-tree-heading-row > button:hover {
