@@ -291,8 +291,10 @@ function SharedResourcesView() {
   const [editing, setEditing] = useState(false)
   const [saved, setSaved] = useState(false)
   const [condition, setCondition] = useState('事実と推測を分け、確認が必要な箇所を明示する')
+  const [draftCondition, setDraftCondition] = useState(condition)
 
   function saveCondition() {
+    setCondition(draftCondition)
     setEditing(false)
     setSaved(true)
   }
@@ -315,10 +317,10 @@ function SharedResourcesView() {
         </section>
 
         <section className="wk-section wk-shared-card">
-          <header><div><p className="wk-eyebrow">作成条件</p><h2>書類作成時の共通条件</h2></div>{!editing && <button className="wk-secondary" onClick={() => { setSaved(false); setEditing(true) }} type="button">編集</button>}</header>
+          <header><div><p className="wk-eyebrow">作成条件</p><h2>書類作成時の共通条件</h2></div>{!editing && <button className="wk-secondary" onClick={() => { setDraftCondition(condition); setSaved(false); setEditing(true) }} type="button">編集</button>}</header>
           {editing ? <div className="wk-shared-editor">
             <label htmlFor="wk-shared-condition">文章の扱い</label>
-            <textarea id="wk-shared-condition" onChange={(event) => setCondition(event.target.value)} value={condition} />
+            <textarea id="wk-shared-condition" onChange={(event) => setDraftCondition(event.target.value)} value={draftCondition} />
             <div><button className="wk-secondary" onClick={() => setEditing(false)} type="button">キャンセル</button><button className="wk-primary" onClick={saveCondition} type="button">保存</button></div>
           </div> : <dl className="wk-shared-settings">
             <div><dt>書類の用途</dt><dd>所内確認を初期値にする</dd></div>
