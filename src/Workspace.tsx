@@ -16,14 +16,15 @@ import type {
 } from './workspace-types'
 import './Workspace.css'
 
-type WorkspaceView = 'dashboard' | 'overview' | 'documents' | 'assistant' | 'approvals' | 'audit'
+type WorkspaceView = 'dashboard' | 'shared' | 'overview' | 'documents' | 'assistant' | 'approvals' | 'audit'
+type CaseView = Exclude<WorkspaceView, 'dashboard' | 'shared'>
 
 type WorkspaceIconName = 'home' | 'case' | 'spark' | 'documents' | 'check' | 'history'
 
-const caseViews: Array<{ id: Exclude<WorkspaceView, 'dashboard'>; label: string; icon: WorkspaceIconName }> = [
-  { id: 'overview', label: '案件情報', icon: 'case' },
-  { id: 'assistant', label: '書類作成', icon: 'spark' },
-  { id: 'documents', label: '資料管理', icon: 'documents' },
+const caseViews: Array<{ id: CaseView; label: string; icon: WorkspaceIconName }> = [
+  { id: 'overview', label: '案件概要', icon: 'case' },
+  { id: 'documents', label: '入力資料', icon: 'documents' },
+  { id: 'assistant', label: 'AI作成ファイル', icon: 'spark' },
   { id: 'approvals', label: '確認・承認', icon: 'check' },
   { id: 'audit', label: '操作履歴', icon: 'history' },
 ]
@@ -116,7 +117,7 @@ export default function Workspace() {
     setMenuOpen(false)
   }
 
-  function openCase(caseId: string, destination: Exclude<WorkspaceView, 'dashboard'> = 'overview') {
+  function openCase(caseId: string, destination: CaseView = 'overview') {
     setCurrentCaseId(caseId)
     setView(destination)
     setMenuOpen(false)
@@ -167,50 +168,55 @@ export default function Workspace() {
         </button>
         <button aria-current={view === 'dashboard' ? 'page' : undefined} className="wk-profile-card" onClick={() => selectView('dashboard')} type="button">
           <span>{currentUser?.initials || '?'}</span>
-          <div><strong>{currentUser?.display_name || '利用者'}</strong><small>{roleLabel(currentUser?.role || 'viewer')}</small></div>
+          <div><strong>{currentUser?.display_name || '利用者'}さん</strong><small>個人ダッシュボード</small></div>
           <WorkspaceIcon name="home" />
         </button>
-        <div className="wk-sidebar-heading">
-          <span>担当案件</span>
-          <button aria-label="新しい案件" onClick={() => setShowCreateCase(true)} type="button">＋</button>
-        </div>
-        <div className="wk-case-list">
-          {cases.map((item) => (
-            <button aria-current={view !== 'dashboard' && currentCaseId === item.id ? 'page' : undefined} key={item.id} onClick={() => openCase(item.id)} type="button">
-              <i /><span><strong>{item.name}</strong><small>{item.client_name}</small></span>
-              {item.pending_approval_count > 0 && <b>{item.pending_approval_count}</b>}
+        <nav aria-label="ワークスペース" className="wk-tree">
+          <section className="wk-tree-section">
+            <p className="wk-tree-heading">共通領域</p>
+            <button aria-current={view === 'shared' ? 'page' : undefined} className="wk-tree-root" onClick={() => selectView('shared')} type="button">
+              <i><WorkspaceIcon name="documents" /></i><span>共通資料・条件</span>
             </button>
-          ))}
-          {!cases.length && <p>担当案件はありません</p>}
-        </div>
-        {currentCase && view !== 'dashboard' && <>
-          <div className="wk-sidebar-heading"><span>案件メニュー</span></div>
-          <nav aria-label="案件メニュー">
-          {caseViews.map((item) => (
-            <button
-              aria-current={view === item.id ? 'page' : undefined}
-              data-testid={`workspace-nav-${item.id}`}
-              key={item.id}
-              onClick={() => selectView(item.id)}
-              type="button"
-            >
-              <i><WorkspaceIcon name={item.icon} /></i><span>{item.label}</span>
-              {item.id === 'documents' && Boolean(currentCase?.document_count) && <b>{currentCase?.document_count}</b>}
-            </button>
-          ))}
-          </nav>
-        </>}
-        <button className="wk-new-case-button" onClick={() => setShowCreateCase(true)} type="button">＋ 新しい案件</button>
+          </section>
+          <section className="wk-tree-section">
+            <div className="wk-tree-heading-row"><p className="wk-tree-heading">案件</p><button aria-label="案件を追加" onClick={() => setShowCreateCase(true)} type="button">＋</button></div>
+            <div className="wk-tree-cases">
+              {cases.map((item) => {
+                const expanded = currentCaseId === item.id && view !== 'dashboard' && view !== 'shared'
+                return (
+                  <div className="wk-tree-case" key={item.id}>
+                    <button aria-current={expanded && view === 'overview' ? 'page' : undefined} className={`wk-tree-case-button ${expanded ? 'expanded' : ''}`} onClick={() => openCase(item.id, 'overview')} type="button">
+                      <span aria-hidden="true" className="wk-tree-expander">{expanded ? '⌄' : '›'}</span>
+                      <WorkspaceIcon name="case" />
+                      <span className="wk-tree-case-label"><strong>{item.name}</strong><small>{item.client_name}</small></span>
+                      {item.pending_approval_count > 0 && <b>{item.pending_approval_count}</b>}
+                    </button>
+                    {expanded && <div className="wk-tree-children">
+                      {caseViews.slice(1).map((subitem) => (
+                        <button aria-current={view === subitem.id ? 'page' : undefined} data-testid={`workspace-nav-${subitem.id}`} key={subitem.id} onClick={() => selectView(subitem.id)} type="button">
+                          <i><WorkspaceIcon name={subitem.icon} /></i><span>{subitem.label}</span>
+                          {subitem.id === 'documents' && Boolean(item.document_count) && <b>{item.document_count}</b>}
+                        </button>
+                      ))}
+                    </div>}
+                  </div>
+                )
+              })}
+              {!cases.length && <p className="wk-tree-empty">案件はありません</p>}
+            </div>
+          </section>
+        </nav>
+        <button className="wk-new-case-button" onClick={() => setShowCreateCase(true)} type="button">＋ 案件を追加</button>
       </aside>
 
       <section className="wk-main">
         <header className="wk-topbar">
           <button aria-label={menuOpen ? 'メニューを閉じる' : 'メニューを開く'} className="wk-menu" onClick={() => setMenuOpen((open) => !open)} type="button"><span /><span /><span /></button>
           <div className="wk-topbar-title">
-            <small>{view === 'dashboard' ? 'ダッシュボード' : caseViews.find((item) => item.id === view)?.label}</small>
-            <strong>{view === 'dashboard' ? '担当案件' : currentCase?.name || '案件を選択'}</strong>
+            <small>{view === 'dashboard' ? '個人ダッシュボード' : view === 'shared' ? '共通領域' : caseViews.find((item) => item.id === view)?.label}</small>
+            <strong>{view === 'dashboard' ? `${currentUser?.display_name || '利用者'}さんの担当案件` : view === 'shared' ? '共通資料・条件' : currentCase?.name || '案件を選択'}</strong>
           </div>
-          {view !== 'dashboard' && currentCase && <label className="wk-case-select">
+          {view !== 'dashboard' && view !== 'shared' && currentCase && <label className="wk-case-select">
             <span>案件</span>
             <select onChange={(event) => openCase(event.target.value, view)} value={currentCaseId}>
               {cases.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -228,6 +234,7 @@ export default function Workspace() {
 
         <div className="wk-content">
           {view === 'dashboard' && <DashboardView cases={cases} currentUser={currentUser} onCreateCase={() => setShowCreateCase(true)} onOpenCase={openCase} />}
+          {view === 'shared' && <SharedResourcesView />}
           {currentCase && view === 'overview' && <OverviewView caseId={currentCase.id} onNavigate={selectView} />}
           {currentCase && view === 'documents' && <DocumentsView caseId={currentCase.id} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
           {currentCase && view === 'assistant' && <AssistantView caseId={currentCase.id} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
@@ -280,10 +287,56 @@ function AccessGate({ error, onSubmit }: { error: string; onSubmit: (password: s
   )
 }
 
+function SharedResourcesView() {
+  const [editing, setEditing] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [condition, setCondition] = useState('事実と推測を分け、確認が必要な箇所を明示する')
+
+  function saveCondition() {
+    setEditing(false)
+    setSaved(true)
+  }
+
+  return (
+    <div className="wk-view wk-shared-view">
+      <div className="wk-view-heading compact">
+        <div><p className="wk-eyebrow">共通領域</p><h1>共通資料・条件</h1><p>すべての案件で使う書式、確認項目、書類作成時の条件を管理します。</p></div>
+      </div>
+
+      <div className="wk-shared-grid">
+        <section className="wk-section wk-shared-card">
+          <header><div><p className="wk-eyebrow">共通資料</p><h2>すべての案件で参照する資料</h2></div><span className="wk-section-count">3件</span></header>
+          <ul className="wk-resource-list">
+            <li><WorkspaceIcon name="documents" /><span><strong>所内提出書式.docx</strong><small>提出用の基本書式・更新 2026年7月29日</small></span><b>DOCX</b></li>
+            <li><WorkspaceIcon name="documents" /><span><strong>事実確認チェックリスト.xlsx</strong><small>提出前に確認する項目・更新 2026年7月28日</small></span><b>XLSX</b></li>
+            <li><WorkspaceIcon name="documents" /><span><strong>案件共通の表記ルール.txt</strong><small>氏名、日付、金額の表記方法・更新 2026年7月25日</small></span><b>TXT</b></li>
+          </ul>
+          <p className="wk-section-note">共通資料は、案件ごとの入力資料と分けて管理されます。</p>
+        </section>
+
+        <section className="wk-section wk-shared-card">
+          <header><div><p className="wk-eyebrow">作成条件</p><h2>書類作成時の共通条件</h2></div>{!editing && <button className="wk-secondary" onClick={() => { setSaved(false); setEditing(true) }} type="button">編集</button>}</header>
+          {editing ? <div className="wk-shared-editor">
+            <label htmlFor="wk-shared-condition">文章の扱い</label>
+            <textarea id="wk-shared-condition" onChange={(event) => setCondition(event.target.value)} value={condition} />
+            <div><button className="wk-secondary" onClick={() => setEditing(false)} type="button">キャンセル</button><button className="wk-primary" onClick={saveCondition} type="button">保存</button></div>
+          </div> : <dl className="wk-shared-settings">
+            <div><dt>書類の用途</dt><dd>所内確認を初期値にする</dd></div>
+            <div><dt>確認する項目</dt><dd>氏名・日付・金額・引用・証拠番号</dd></div>
+            <div><dt>文章の扱い</dt><dd>{condition}</dd></div>
+          </dl>}
+          {saved && <p className="wk-save-note" role="status">共通条件を保存しました。</p>}
+          <p className="wk-section-note">案件画面では、ここで設定した条件を引き継いだうえで、案件ごとの条件を追加できます。</p>
+        </section>
+      </div>
+    </div>
+  )
+}
+
 function DashboardView({ cases, currentUser, onOpenCase, onCreateCase }: {
   cases: LegalCase[]
   currentUser: User | null
-  onOpenCase: (caseId: string, destination?: Exclude<WorkspaceView, 'dashboard'>) => void
+  onOpenCase: (caseId: string, destination?: CaseView) => void
   onCreateCase: () => void
 }) {
   const totalDocuments = cases.reduce((total, item) => total + item.document_count, 0)

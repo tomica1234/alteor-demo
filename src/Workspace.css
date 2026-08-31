@@ -1,17 +1,17 @@
 .wk-shell {
-  --wk-accent: #007aff;
-  --wk-accent-pressed: #0065d8;
-  --wk-ink: #1d1d1f;
-  --wk-secondary: #6e6e73;
-  --wk-tertiary: #8e8e93;
-  --wk-bg: #f5f5f7;
-  --wk-surface: rgba(255, 255, 255, 0.86);
+  --wk-accent: #0068b7;
+  --wk-accent-pressed: #004b82;
+  --wk-ink: #1a1a1a;
+  --wk-secondary: #4a4f55;
+  --wk-tertiary: #5b6168;
+  --wk-bg: #f5f6f7;
+  --wk-surface: #ffffff;
   --wk-solid: #ffffff;
-  --wk-line: rgba(60, 60, 67, 0.14);
-  --wk-soft-line: rgba(60, 60, 67, 0.08);
-  --wk-green: #248a3d;
-  --wk-orange: #c93400;
-  --wk-red: #d70015;
+  --wk-line: #c8cdd2;
+  --wk-soft-line: #e1e4e7;
+  --wk-green: #237a57;
+  --wk-orange: #a85f00;
+  --wk-red: #c00;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -19,12 +19,10 @@
   grid-template-columns: 15rem minmax(0, 1fr);
   overflow: hidden;
   color: var(--wk-ink);
-  background:
-    radial-gradient(circle at 78% -10%, rgba(10, 132, 255, 0.08), transparent 28rem),
-    var(--wk-bg);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  background: var(--wk-bg);
+  font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic", sans-serif;
   font-size: 16px;
-  font-optical-sizing: auto;
+  line-height: 1.75;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -56,11 +54,14 @@
 }
 
 .wk-shell :is(button, input, textarea, select):focus-visible {
-  outline: 0.2rem solid rgba(0, 122, 255, 0.28);
+  outline: 0.2rem solid rgba(0, 104, 183, 0.35);
   outline-offset: 0.12rem;
 }
 
 .wk-boot {
+  --wk-accent: #0068b7;
+  --wk-secondary: #4a4f55;
+  --wk-bg: #f5f6f7;
   position: fixed;
   inset: 0;
   display: grid;
@@ -69,7 +70,7 @@
   gap: 1rem;
   color: var(--wk-secondary);
   background: var(--wk-bg);
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .wk-brand-glyph,
@@ -78,13 +79,13 @@
   width: 2.5rem;
   height: 2.5rem;
   place-items: center;
-  border-radius: 0.75rem;
+  border-radius: 0.25rem;
   color: #fff;
-  background: linear-gradient(145deg, #218cff, #0067df);
+  background: var(--wk-accent);
   font-size: 1.25rem;
   font-weight: 750;
   letter-spacing: -0.04em;
-  box-shadow: 0 0.5rem 1.25rem rgba(0, 92, 210, 0.22);
+  box-shadow: none;
 }
 
 .wk-boot > i,
@@ -98,33 +99,30 @@
 }
 
 .wk-access {
-  --wk-accent: #007aff;
-  --wk-ink: #1d1d1f;
-  --wk-secondary: #6e6e73;
-  --wk-bg: #f5f5f7;
-  --wk-red: #d70015;
+  --wk-accent: #0068b7;
+  --wk-ink: #1a1a1a;
+  --wk-secondary: #4a4f55;
+  --wk-bg: #f5f6f7;
+  --wk-line: #c8cdd2;
+  --wk-red: #c00;
   position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 1.5rem;
   color: var(--wk-ink);
-  background:
-    radial-gradient(circle at 50% -10%, rgba(10, 132, 255, 0.1), transparent 28rem),
-    var(--wk-bg);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  background: var(--wk-bg);
+  font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 .wk-access-card {
   width: min(100%, 26rem);
   padding: 2.25rem;
-  border: 1px solid rgba(60, 60, 67, 0.12);
-  border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(28px) saturate(140%);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid var(--wk-line);
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
 }
 
 .wk-access-card .wk-brand-glyph { margin-bottom: 2rem; }
@@ -149,11 +147,9 @@
   min-height: 0;
   flex-direction: column;
   overflow-y: auto;
-  border-right: 1px solid rgba(255, 255, 255, 0.7);
-  background: rgba(238, 238, 241, 0.78);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
-  box-shadow: 0.1rem 0 1.8rem rgba(0, 0, 0, 0.035);
+  border-right: 1px solid var(--wk-line);
+  background: #fff;
+  box-shadow: none;
 }
 
 .wk-brand {
@@ -192,24 +188,23 @@
   grid-template-columns: 2.15rem minmax(0, 1fr) 1.1rem;
   align-items: center;
   gap: 0.65rem;
-  margin: 0.2rem 0.7rem 1rem;
+  margin: 0.2rem 0.75rem 1.25rem;
   padding: 0.65rem;
   border: 1px solid transparent;
-  border-radius: 0.85rem;
+  border-radius: 0.25rem;
   color: var(--wk-ink);
   background: transparent;
   text-align: left;
-  transition: background 160ms ease, box-shadow 160ms ease, transform 100ms ease;
+  transition: background 160ms ease, transform 100ms ease;
 }
 
 .wk-profile-card:hover,
 .wk-profile-card[aria-current="page"] {
-  background: rgba(255, 255, 255, 0.68);
+  background: #e8f1f8;
 }
 
 .wk-profile-card[aria-current="page"] {
-  border-color: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0.18rem 0.7rem rgba(0, 0, 0, 0.045);
+  border-color: #b5cfe0;
 }
 
 .wk-profile-card > span {
@@ -219,7 +214,7 @@
   place-items: center;
   border-radius: 50%;
   color: #fff;
-  background: linear-gradient(145deg, #73777f, #3c3c43);
+  background: #4a4f55;
   font-size: 0.7rem;
   font-weight: 680;
 }
@@ -479,6 +474,244 @@
   font-size: 0.62rem;
 }
 
+/* Digital Agency Design System-inspired workspace tree */
+.wk-sidebar .wk-tree {
+  display: grid;
+  gap: 1.1rem;
+  padding: 0 0.75rem 1rem;
+}
+
+.wk-sidebar .wk-tree-section {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.wk-sidebar .wk-tree-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 0.25rem;
+}
+
+.wk-sidebar .wk-tree-heading {
+  margin: 0;
+  padding: 0.2rem 0.5rem;
+  color: var(--wk-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wk-sidebar .wk-tree-heading-row > button {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--wk-accent);
+  background: transparent;
+  font-size: 1rem;
+}
+
+.wk-sidebar .wk-tree-heading-row > button:hover {
+  background: #e8f1f8;
+}
+
+.wk-sidebar .wk-tree-root,
+.wk-sidebar .wk-tree-case-button,
+.wk-sidebar .wk-tree-children button {
+  border: 0;
+  color: var(--wk-ink);
+  background: transparent;
+  text-align: left;
+}
+
+.wk-sidebar .wk-tree-root {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.65rem;
+  padding: 0 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.wk-sidebar .wk-tree-root:hover,
+.wk-sidebar .wk-tree-root[aria-current="page"] {
+  color: #003b64;
+  background: #e8f1f8;
+}
+
+.wk-sidebar .wk-tree-root > i {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  color: var(--wk-secondary);
+  font-style: normal;
+}
+
+.wk-sidebar .wk-tree-root > i svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.wk-sidebar .wk-tree-root[aria-current="page"] > i {
+  color: var(--wk-accent);
+}
+
+.wk-sidebar .wk-tree-cases {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.wk-sidebar .wk-tree-case {
+  min-width: 0;
+}
+
+.wk-sidebar .wk-tree-case-button {
+  display: grid;
+  grid-template-columns: 1rem 1.35rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 3.1rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.wk-sidebar .wk-tree-case-button:hover,
+.wk-sidebar .wk-tree-case-button.expanded {
+  background: #f0f5f8;
+}
+
+.wk-sidebar .wk-tree-case-button[aria-current="page"] {
+  color: #003b64;
+  background: #e8f1f8;
+}
+
+.wk-sidebar .wk-tree-expander {
+  width: 1rem;
+  color: var(--wk-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.wk-sidebar .wk-tree-case-button > svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--wk-accent);
+}
+
+.wk-sidebar .wk-tree-case-label {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.wk-sidebar .wk-tree-case-label strong,
+.wk-sidebar .wk-tree-case-label small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-sidebar .wk-tree-case-label strong {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.wk-sidebar .wk-tree-case-label small {
+  color: var(--wk-secondary);
+  font-size: 0.66rem;
+}
+
+.wk-sidebar .wk-tree-case-button > b,
+.wk-sidebar .wk-tree-children button > b {
+  display: grid;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.28rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--wk-secondary);
+  background: #edf0f2;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.wk-sidebar .wk-tree-children {
+  display: grid;
+  gap: 0.08rem;
+  margin: 0.12rem 0 0.25rem 1.5rem;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--wk-line);
+}
+
+.wk-sidebar .wk-tree-children button {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.45rem;
+  padding: 0 0.45rem;
+  border-radius: 0.25rem;
+  color: #3f464c;
+}
+
+.wk-sidebar .wk-tree-children button:hover,
+.wk-sidebar .wk-tree-children button[aria-current="page"] {
+  color: #003b64;
+  background: #e8f1f8;
+}
+
+.wk-sidebar .wk-tree-children button > i {
+  display: grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  place-items: center;
+  color: var(--wk-secondary);
+  font-style: normal;
+}
+
+.wk-sidebar .wk-tree-children button > i svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.wk-sidebar .wk-tree-children button[aria-current="page"] > i {
+  color: var(--wk-accent);
+}
+
+.wk-sidebar .wk-tree-children button > span {
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.wk-sidebar .wk-tree-empty {
+  margin: 0.45rem 0.5rem;
+  color: var(--wk-secondary);
+  font-size: 0.72rem;
+}
+
+.wk-sidebar .wk-new-case-button {
+  min-height: 2.65rem;
+  margin: auto 0.75rem 0.8rem;
+  border: 1px solid var(--wk-accent);
+  border-radius: 0.25rem;
+  color: var(--wk-accent);
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.wk-sidebar .wk-new-case-button:hover {
+  background: #e8f1f8;
+}
+
 .wk-main {
   display: grid;
   grid-template-rows: 4.25rem minmax(0, 1fr);
@@ -494,21 +727,12 @@
   gap: 1rem;
   min-width: 0;
   padding: 0 1.5rem;
-  background: rgba(250, 250, 252, 0.72);
-  backdrop-filter: blur(22px) saturate(170%);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
-  box-shadow: 0 0.6rem 1.2rem -1.2rem rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid var(--wk-line);
+  background: #fff;
 }
 
 .wk-topbar::after {
-  position: absolute;
-  right: 0;
-  bottom: -0.8rem;
-  left: 0;
-  height: 0.8rem;
-  background: linear-gradient(rgba(245, 245, 247, 0.65), transparent);
-  content: "";
-  pointer-events: none;
+  display: none;
 }
 
 .wk-menu {
@@ -557,9 +781,9 @@
   min-height: 2.25rem;
   padding: 0 1.9rem 0 0.7rem;
   border: 1px solid var(--wk-line);
-  border-radius: 0.6rem;
+  border-radius: 0.25rem;
   color: var(--wk-ink);
-  background: rgba(255, 255, 255, 0.82);
+  background: #fff;
   font-size: 0.75rem;
   font-weight: 550;
 }
@@ -580,7 +804,7 @@
   place-items: center;
   border-radius: 50%;
   color: #fff;
-  background: linear-gradient(145deg, #73777f, #3c3c43);
+  background: #4a4f55;
   font-size: 0.7rem;
   font-weight: 680;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
@@ -652,17 +876,17 @@
   justify-content: center;
   gap: 0.45rem;
   padding: 0 1rem;
-  border-radius: 0.72rem;
+  border-radius: 0.25rem;
   font-size: 0.8rem;
   font-weight: 650;
-  transition: background 160ms ease, box-shadow 160ms ease, transform 100ms ease;
+  transition: background 160ms ease, border-color 160ms ease, transform 100ms ease;
 }
 
 .wk-primary {
   border: 1px solid transparent;
   color: #fff;
   background: var(--wk-accent);
-  box-shadow: 0 0.4rem 1rem rgba(0, 122, 255, 0.2);
+  box-shadow: none;
 }
 
 .wk-primary:hover {
@@ -672,7 +896,7 @@
 .wk-secondary {
   border: 1px solid var(--wk-line);
   color: var(--wk-ink);
-  background: rgba(255, 255, 255, 0.8);
+  background: #fff;
 }
 
 .wk-secondary:hover {
@@ -2743,6 +2967,202 @@
   font-size: 0.8rem;
 }
 
+.wk-shared-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.wk-shared-card {
+  min-width: 0;
+}
+
+.wk-section-count {
+  color: var(--wk-secondary);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.wk-resource-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wk-resource-list li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--wk-soft-line);
+}
+
+.wk-resource-list li:first-child {
+  border-top: 0;
+}
+
+.wk-resource-list li > svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--wk-accent);
+}
+
+.wk-resource-list li > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.wk-resource-list li strong,
+.wk-resource-list li small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-resource-list li strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.wk-resource-list li small {
+  color: var(--wk-secondary);
+  font-size: 0.68rem;
+}
+
+.wk-resource-list li > b {
+  color: var(--wk-secondary);
+  font-family: "Noto Sans Mono", ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.wk-section-note {
+  margin: 1rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--wk-soft-line);
+  color: var(--wk-secondary);
+  font-size: 0.7rem;
+  line-height: 1.65;
+}
+
+.wk-shared-settings {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.wk-shared-settings > div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--wk-soft-line);
+}
+
+.wk-shared-settings > div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.wk-shared-settings dt {
+  color: var(--wk-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wk-shared-settings dd {
+  margin: 0;
+  color: var(--wk-ink);
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.wk-shared-editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.wk-shared-editor > label {
+  color: var(--wk-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wk-shared-editor textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  padding: 0.7rem;
+  resize: vertical;
+  border: 1px solid var(--wk-line);
+  border-radius: 0.25rem;
+  color: var(--wk-ink);
+  background: #fff;
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+
+.wk-shared-editor > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.wk-save-note {
+  margin: 0.9rem 0 0;
+  color: var(--wk-green);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Keep the main workspace quiet and document-oriented. */
+.wk-shell .wk-dashboard-stats article,
+.wk-shell .wk-case-section,
+.wk-shell .wk-stat-grid article,
+.wk-shell .wk-section,
+.wk-shell .wk-panel,
+.wk-shell .wk-new-case-bar,
+.wk-shell .wk-workflow-setup,
+.wk-shell .wk-chat-panel,
+.wk-shell .wk-doc-toolbar,
+.wk-shell .wk-doc-table-wrap,
+.wk-shell .wk-next-step,
+.wk-shell .wk-approval-list > article,
+.wk-shell .wk-audit-toolbar {
+  border-color: var(--wk-line);
+  border-radius: 0.25rem;
+  box-shadow: none;
+}
+
+.wk-shell .wk-case-grid > article {
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: none;
+}
+
+.wk-shell .wk-case-grid > article:hover {
+  box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.08);
+}
+
+.wk-shell .wk-text-button {
+  border-radius: 0.25rem;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.wk-shell .wk-text-button:hover {
+  background: #e8f1f8;
+}
+
+.wk-shell .wk-next-panel {
+  background: #fff;
+}
+
 .wk-modal-layer,
 .wk-drawer-layer {
   position: fixed;
@@ -2969,6 +3389,8 @@
   .wk-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wk-dashboard-stats,
   .wk-case-grid { grid-template-columns: minmax(0, 1fr); }
+  .wk-shared-grid { grid-template-columns: minmax(0, 1fr); }
+  .wk-shared-settings > div { grid-template-columns: minmax(6rem, 0.45fr) minmax(0, 1fr); gap: 0.75rem; }
   .wk-case-grid > article > footer { flex-wrap: wrap; }
   .wk-case-grid > article > footer > div { width: 100%; margin-left: 0; }
   .wk-case-grid > article > footer button { flex: 1; }
