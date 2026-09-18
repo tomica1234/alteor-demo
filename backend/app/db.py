@@ -65,6 +65,27 @@ CREATE TABLE IF NOT EXISTS case_members (
     PRIMARY KEY (case_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS deadlines (
+    id TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    due_date TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('court', 'client', 'internal', 'other')),
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'completed')),
+    owner_id TEXT NOT NULL REFERENCES users(id),
+    note TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS decision_chat_messages (
+    id TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    author_id TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
@@ -197,6 +218,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_case ON messages(case_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_draft_versions_case ON draft_versions(case_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_audit_case ON audit_events(case_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_approvals_case ON approvals(case_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_deadlines_case ON deadlines(case_id, due_date);
+CREATE INDEX IF NOT EXISTS idx_decision_chat_case ON decision_chat_messages(case_id, created_at);
 """
 
 
@@ -267,6 +290,7 @@ def seed_database(connection: sqlite3.Connection) -> None:
         ("user-admin", "橘 駿太", "ST", "admin", now),
         ("user-lawyer", "佐藤 裕子", "YS", "lawyer", now),
         ("user-staff", "山田 花子", "HY", "staff", now),
+        ("user-viewer", "田中 一郎", "TI", "viewer", now),
     ]
     connection.executemany(
         """INSERT INTO users(id, display_name, initials, role, created_at) VALUES (?, ?, ?, ?, ?)
@@ -299,6 +323,25 @@ def seed_database(connection: sqlite3.Connection) -> None:
             ("C-2026-0710", "user-admin", "owner"),
             ("C-2026-0710", "user-lawyer", "reviewer"),
             ("C-2026-0710", "user-staff", "editor"),
+            ("C-2026-0710", "user-viewer", "viewer"),
+        ],
+    )
+    connection.executemany(
+        """INSERT OR IGNORE INTO deadlines
+           (id, case_id, title, due_date, kind, status, owner_id, note, created_by, created_at)
+           VALUES (?, 'C-2026-0710', ?, ?, ?, 'open', ?, ?, 'user-admin', ?)""",
+        [
+            ("deadline-approval", "調査・確認報告書の決裁", "2026-09-18", "internal", "user-lawyer", "書類案と確認事項を確認し、差戻しまたは承認する。", now),
+            ("deadline-client", "依頼人へ確認事項を送付", "2026-09-21", "client", "user-staff", "振込原本と連絡履歴の提出を依頼する。", now),
+            ("deadline-source", "振込原本と連絡履歴の照合", "2026-09-30", "internal", "user-staff", "提出書面案の金額・返金期限の根拠を確定する。", now),
+        ],
+    )
+    connection.executemany(
+        """INSERT OR IGNORE INTO decision_chat_messages(id, case_id, body, author_id, created_at)
+           VALUES (?, 'C-2026-0710', ?, ?, ?)""",
+        [
+            ("chat-1", "書類案を確認しました。振込額は原本確認後に確定しましょう。", "user-lawyer", "2026-09-16T09:20:00+00:00"),
+            ("chat-2", "承知しました。本日中に依頼人へ原本の提出を依頼し、期限を更新します。", "user-staff", "2026-09-16T09:42:00+00:00"),
         ],
     )
     for document_id, name, kind, content in DEMO_DOCUMENTS:

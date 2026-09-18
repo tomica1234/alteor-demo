@@ -4,6 +4,8 @@ import type {
   CaseDocument,
   CaseOverview,
   Connector,
+  DecisionChatMessage,
+  Deadline,
   DraftVersion,
   FindingResolution,
   Health,
@@ -23,6 +25,8 @@ type DemoState = {
   users: User[]
   cases: LegalCase[]
   documents: CaseDocument[]
+  deadlines: Deadline[]
+  decisionChat: DecisionChatMessage[]
   messages: Message[]
   drafts: DraftVersion[]
   resolutions: Record<string, FindingResolution[]>
@@ -54,6 +58,7 @@ function initialState(): DemoState {
     { id: 'user-admin', display_name: '橘 駿太', initials: 'ST', role: 'admin' },
     { id: 'user-lawyer', display_name: '佐藤 裕子', initials: 'YS', role: 'lawyer' },
     { id: 'user-staff', display_name: '山田 花子', initials: 'HY', role: 'staff' },
+    { id: 'user-viewer', display_name: '田中 一郎', initials: 'TI', role: 'viewer' },
   ]
   const documents: CaseDocument[] = [
     {
@@ -77,10 +82,21 @@ function initialState(): DemoState {
       chunks: [chunk('doc-nda-checklist', 0, '提出前チェックリスト\n\n1. 当事者氏名と住所が原資料と一致しているか。\n2. 日付と時系列が相談記録・証拠資料と一致しているか。\n3. 金額と計算根拠が銀行明細と一致しているか。\n4. 引用箇所と証拠番号が対応しているか。\n5. 最終判断と表現を担当者が確認したか。', '提出前確認')],
     },
   ]
+  const deadlines: Deadline[] = [
+    { id: 'deadline-approval', case_id: 'C-2026-0710', title: '調査・確認報告書の決裁', due_date: '2026-09-18', kind: 'internal', status: 'open', owner_id: 'user-lawyer', owner_name: '佐藤 裕子', note: '書類案と確認事項を確認し、差戻しまたは承認する。', created_by: 'user-admin', created_at: DEMO_TIME },
+    { id: 'deadline-client', case_id: 'C-2026-0710', title: '依頼人へ確認事項を送付', due_date: '2026-09-21', kind: 'client', status: 'open', owner_id: 'user-staff', owner_name: '山田 花子', note: '振込原本と連絡履歴の提出を依頼する。', created_by: 'user-admin', created_at: DEMO_TIME },
+    { id: 'deadline-source', case_id: 'C-2026-0710', title: '振込原本と連絡履歴の照合', due_date: '2026-09-30', kind: 'internal', status: 'open', owner_id: 'user-staff', owner_name: '山田 花子', note: '提出書面案の金額・返金期限の根拠を確定する。', created_by: 'user-admin', created_at: DEMO_TIME },
+  ]
+  const decisionChat: DecisionChatMessage[] = [
+    { id: 'chat-1', case_id: 'C-2026-0710', body: '書類案を確認しました。振込額は原本確認後に確定しましょう。', author_id: 'user-lawyer', author_name: '佐藤 裕子', author_role: 'lawyer', created_at: '2026-09-16T09:20:00.000Z' },
+    { id: 'chat-2', case_id: 'C-2026-0710', body: '承知しました。本日中に依頼人へ原本の提出を依頼し、期限を更新します。', author_id: 'user-staff', author_name: '山田 花子', author_role: 'staff', created_at: '2026-09-16T09:42:00.000Z' },
+  ]
   return {
     users,
-    cases: [{ id: 'C-2026-0710', name: '金銭返還／事実関係整理', client_name: '山田 太郎', summary: '相談記録、提出書面、銀行取引明細の内容を照合し、事実関係を整理する。', status: 'reviewing', owner_id: 'user-admin', document_count: documents.length, pending_approval_count: 0, created_at: DEMO_TIME, updated_at: DEMO_TIME }],
+    cases: [{ id: 'C-2026-0710', name: '金銭返還／事実関係整理', client_name: '山田 太郎', summary: '相談記録、提出書面、銀行取引明細の内容を照合し、事実関係を整理する。', status: 'reviewing', owner_id: 'user-admin', document_count: documents.length, pending_approval_count: 0, deadline_count: deadlines.filter((item) => item.status === 'open').length, next_deadline_at: deadlines[0].due_date, next_deadline_title: deadlines[0].title, members: [{ ...users[0], access_level: 'owner' }, { ...users[1], access_level: 'reviewer' }, { ...users[2], access_level: 'editor' }, { ...users[3], access_level: 'viewer' }], created_at: DEMO_TIME, updated_at: DEMO_TIME }],
     documents,
+    deadlines,
+    decisionChat,
     messages: [],
     drafts: [],
     resolutions: {},
@@ -93,7 +109,10 @@ function initialState(): DemoState {
 function readState(): DemoState {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) as DemoState : initialState()
+    if (!stored) return initialState()
+    const defaults = initialState()
+    const parsed = JSON.parse(stored) as Partial<DemoState>
+    return { ...defaults, ...parsed, deadlines: parsed.deadlines || defaults.deadlines, decisionChat: parsed.decisionChat || defaults.decisionChat }
   } catch {
     return initialState()
   }
@@ -109,13 +128,23 @@ function user() {
   return state.users.find((item) => item.id === currentUserId) || state.users[0]
 }
 
+function ensureCaseAccess(caseId: string, write = false) {
+  const item = state.cases.find((entry) => entry.id === caseId)
+  if (!item) throw new Error('案件が見つかりません。')
+  if (user().role === 'admin') return item
+  const membership = item.members?.find((member) => member.id === currentUserId)
+  if (!membership || (write && membership.access_level === 'viewer')) throw new Error(write ? 'この案件を更新する権限がありません。' : 'この案件を閲覧する権限がありません。')
+  return item
+}
+
 function cite(document: CaseDocument, chunkIndex = 0, score = 0.96) {
   const selected = document.chunks?.[chunkIndex] || document.chunks?.[0]
   return selected ? { chunk_id: selected.id, document_id: document.id, document_name: document.name, locator: `p.${selected.page_number || 1}・${selected.section || '本文'}`, excerpt: selected.text.slice(0, 180), score } : null
 }
 
 function caseWithCounts(item: LegalCase): LegalCase {
-  return { ...item, document_count: state.documents.filter((document) => document.case_id === item.id).length, pending_approval_count: state.approvals.filter((approval) => approval.case_id === item.id && approval.status === 'pending').length }
+  const deadlines = state.deadlines.filter((deadline) => deadline.case_id === item.id && deadline.status === 'open').sort((a, b) => a.due_date.localeCompare(b.due_date))
+  return { ...item, document_count: state.documents.filter((document) => document.case_id === item.id).length, pending_approval_count: state.approvals.filter((approval) => approval.case_id === item.id && approval.status === 'pending').length, deadline_count: deadlines.length, next_deadline_at: deadlines[0]?.due_date || null, next_deadline_title: deadlines[0]?.title || null }
 }
 
 function citationsFor(caseId: string) {
@@ -183,7 +212,7 @@ export const demoApi = {
   users: async () => clone(state.users),
   cases: async () => clone(state.cases.map(caseWithCounts)),
   createCase: async (body: { name: string; client_name: string; summary: string }) => {
-    const item: LegalCase = { id: `C-2026-${Math.floor(Math.random() * 9000 + 1000)}`, ...body, status: 'preparing', owner_id: currentUserId, document_count: 0, pending_approval_count: 0, created_at: now(), updated_at: now() }
+    const item: LegalCase = { id: `C-2026-${Math.floor(Math.random() * 9000 + 1000)}`, ...body, status: 'preparing', owner_id: currentUserId, document_count: 0, pending_approval_count: 0, deadline_count: 0, next_deadline_at: null, next_deadline_title: null, members: [{ ...user(), access_level: 'owner' }], created_at: now(), updated_at: now() }
     state.cases.unshift(item)
     state.auditEvents.unshift({ id: Date.now(), case_id: item.id, user_id: currentUserId, user_name: user().display_name, event_type: 'case.created', target_type: 'case', target_id: item.id, result: 'success', detail: {}, created_at: now() })
     save()
@@ -202,6 +231,46 @@ export const demoApi = {
     return clone(item)
   },
   deleteDocument: async (documentId: string) => { state.documents = state.documents.filter((item) => item.id !== documentId); save(); return { ok: true } },
+  deadlines: async (caseId: string) => { ensureCaseAccess(caseId); return clone(state.deadlines.filter((deadline) => deadline.case_id === caseId).sort((a, b) => a.due_date.localeCompare(b.due_date))) },
+  createDeadline: async (caseId: string, body: { title: string; due_date: string; kind: Deadline['kind']; owner_id: string; note: string }) => {
+    const currentCase = ensureCaseAccess(caseId, true)
+    const assignee = currentCase.members?.find((member) => member.id === body.owner_id)
+    if (!assignee) throw new Error('期限の担当者は、この案件の参加者から選択してください。')
+    const item: Deadline = { id: id('deadline'), case_id: caseId, title: body.title, due_date: body.due_date, kind: body.kind, status: 'open', owner_id: assignee.id, owner_name: assignee.display_name, note: body.note, created_by: currentUserId, created_at: now() }
+    state.deadlines.push(item)
+    state.auditEvents.unshift({ id: Date.now(), case_id: caseId, user_id: currentUserId, user_name: user().display_name, event_type: 'deadline.created', target_type: 'deadline', target_id: item.id, result: 'success', detail: { due_date: item.due_date }, created_at: now() })
+    save()
+    return clone(item)
+  },
+  updateDeadline: async (deadlineId: string, body: { status: Deadline['status'] }) => {
+    const item = state.deadlines.find((deadline) => deadline.id === deadlineId)
+    if (!item) throw new Error('期限が見つかりません。')
+    ensureCaseAccess(item.case_id, true)
+    item.status = body.status
+    state.auditEvents.unshift({ id: Date.now(), case_id: item.case_id, user_id: currentUserId, user_name: user().display_name, event_type: body.status === 'completed' ? 'deadline.completed' : 'deadline.reopened', target_type: 'deadline', target_id: item.id, result: 'success', detail: {}, created_at: now() })
+    save()
+    return clone(item)
+  },
+  decisionChat: async (caseId: string) => { ensureCaseAccess(caseId); return clone(state.decisionChat.filter((message) => message.case_id === caseId).sort((a, b) => a.created_at.localeCompare(b.created_at))) },
+  sendDecisionChat: async (caseId: string, body: string) => {
+    ensureCaseAccess(caseId, true)
+    const current = user()
+    const item: DecisionChatMessage = { id: id('chat'), case_id: caseId, body, author_id: current.id, author_name: current.display_name, author_role: current.role, created_at: now() }
+    state.decisionChat.push(item)
+    state.auditEvents.unshift({ id: Date.now(), case_id: caseId, user_id: currentUserId, user_name: current.display_name, event_type: 'decision_chat.sent', target_type: 'decision_chat', target_id: item.id, result: 'success', detail: {}, created_at: item.created_at })
+    save()
+    return clone(item)
+  },
+  updateCaseMember: async (caseId: string, userId: string, access_level: 'owner' | 'reviewer' | 'editor' | 'viewer') => {
+    if (currentUserId !== 'user-admin') throw new Error('権限の変更は管理者のみ実行できます。')
+    const item = state.cases.find((entry) => entry.id === caseId)
+    const target = state.users.find((entry) => entry.id === userId)
+    if (!item || !target) throw new Error('案件または利用者が見つかりません。')
+    item.members = (item.members || []).filter((member) => member.id !== userId).concat({ ...target, access_level })
+    state.auditEvents.unshift({ id: Date.now(), case_id: caseId, user_id: currentUserId, user_name: user().display_name, event_type: 'case.member_updated', target_type: 'user', target_id: userId, result: 'success', detail: { access_level }, created_at: now() })
+    save()
+    return clone(caseWithCounts(item))
+  },
   messages: async (caseId: string) => clone(state.messages.filter((item) => item.case_id === caseId)),
   sendMessage: async (caseId: string, question: string, taskType: TaskType) => clone(createMessages(caseId, question, taskType)[1]),
   regenerate: async (messageId: string) => {

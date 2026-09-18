@@ -220,3 +220,66 @@ def test_case_boundaries_are_enforced() -> None:
 
         invisible = client.get("/api/cases", headers=headers("user-staff"))
         assert all(item["id"] != case_id for item in invisible.json())
+
+
+def test_deadlines_chat_and_permission_boundaries() -> None:
+    with TestClient(app) as client:
+        deadlines = client.get("/api/cases/C-2026-0710/deadlines", headers=headers("user-lawyer"))
+        assert deadlines.status_code == 200
+        assert len(deadlines.json()) >= 3
+
+        created = client.post(
+            "/api/cases/C-2026-0710/deadlines",
+            headers=headers("user-staff"),
+            json={
+                "title": "所内確認の期限",
+                "due_date": "2026-10-02",
+                "kind": "internal",
+                "owner_id": "user-staff",
+                "note": "確認責任者へ報告する",
+            },
+        )
+        assert created.status_code == 201, created.text
+        completed = client.patch(
+            f"/api/deadlines/{created.json()['id']}",
+            headers=headers("user-staff"),
+            json={"status": "completed"},
+        )
+        assert completed.status_code == 200
+        assert completed.json()["status"] == "completed"
+
+        chat = client.get("/api/cases/C-2026-0710/decision-chat", headers=headers("user-viewer"))
+        assert chat.status_code == 200
+        forbidden_chat = client.post(
+            "/api/cases/C-2026-0710/decision-chat",
+            headers=headers("user-viewer"),
+            json={"body": "閲覧者からの送信"},
+        )
+        assert forbidden_chat.status_code == 403
+
+        forbidden_deadline = client.post(
+            "/api/cases/C-2026-0710/deadlines",
+            headers=headers("user-viewer"),
+            json={
+                "title": "閲覧者の期限",
+                "due_date": "2026-10-03",
+                "kind": "internal",
+                "owner_id": "user-viewer",
+                "note": "権限確認",
+            },
+        )
+        assert forbidden_deadline.status_code == 403
+
+        forbidden_status = client.patch(
+            "/api/cases/C-2026-0710",
+            headers=headers("user-staff"),
+            json={"status": "approved"},
+        )
+        assert forbidden_status.status_code == 403
+
+        forbidden_member_update = client.put(
+            "/api/cases/C-2026-0710/members",
+            headers=headers("user-staff"),
+            json={"user_id": "user-viewer", "access_level": "viewer"},
+        )
+        assert forbidden_member_update.status_code == 403

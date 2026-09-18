@@ -5,8 +5,11 @@ import type {
   Approval,
   AuditEvent,
   CaseDocument,
+  CaseMember,
   CaseOverview,
   Citation,
+  DecisionChatMessage,
+  Deadline,
   LegalCase,
   Message,
   DraftVersion,
@@ -16,16 +19,19 @@ import type {
 } from './workspace-types'
 import './Workspace.css'
 
-type WorkspaceView = 'dashboard' | 'shared' | 'overview' | 'documents' | 'assistant' | 'approvals' | 'audit'
+type WorkspaceView = 'dashboard' | 'shared' | 'overview' | 'documents' | 'assistant' | 'calendar' | 'chat' | 'approvals' | 'permissions' | 'audit'
 type CaseView = Exclude<WorkspaceView, 'dashboard' | 'shared'>
 
-type WorkspaceIconName = 'home' | 'case' | 'spark' | 'documents' | 'check' | 'history'
+type WorkspaceIconName = 'home' | 'case' | 'spark' | 'documents' | 'calendar' | 'chat' | 'shield' | 'check' | 'history'
 
 const caseViews: Array<{ id: CaseView; label: string; icon: WorkspaceIconName }> = [
   { id: 'overview', label: '案件概要', icon: 'case' },
   { id: 'documents', label: '入力資料', icon: 'documents' },
   { id: 'assistant', label: 'AI作成ファイル', icon: 'spark' },
+  { id: 'calendar', label: '期限・カレンダー', icon: 'calendar' },
+  { id: 'chat', label: '決裁者とのチャット', icon: 'chat' },
   { id: 'approvals', label: '確認・承認', icon: 'check' },
+  { id: 'permissions', label: '権限・非弁チェック', icon: 'shield' },
   { id: 'audit', label: '操作履歴', icon: 'history' },
 ]
 
@@ -195,7 +201,7 @@ export default function Workspace() {
                       {caseViews.slice(1).map((subitem) => (
                         <button aria-current={view === subitem.id ? 'page' : undefined} data-testid={`workspace-nav-${subitem.id}`} key={subitem.id} onClick={() => selectView(subitem.id)} type="button">
                           <i><WorkspaceIcon name={subitem.icon} /></i><span>{subitem.label}</span>
-                          {subitem.id === 'documents' && Boolean(item.document_count) && <b>{item.document_count}</b>}
+                          {subitem.id === 'calendar' && Boolean(item.deadline_count) && <b>{item.deadline_count}</b>}
                         </button>
                       ))}
                     </div>}
@@ -238,7 +244,10 @@ export default function Workspace() {
           {currentCase && view === 'overview' && <OverviewView caseId={currentCase.id} onNavigate={selectView} />}
           {currentCase && view === 'documents' && <DocumentsView caseId={currentCase.id} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
           {currentCase && view === 'assistant' && <AssistantView caseId={currentCase.id} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
+          {currentCase && view === 'calendar' && <CalendarView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} />}
+          {currentCase && view === 'chat' && <DecisionChatView caseId={currentCase.id} currentUser={currentUser} />}
           {currentCase && view === 'approvals' && <ApprovalsView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} />}
+          {currentCase && view === 'permissions' && <PermissionsView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} />}
           {currentCase && view === 'audit' && <AuditView caseId={currentCase.id} />}
         </div>
       </section>
@@ -341,7 +350,7 @@ function DashboardView({ cases, currentUser, onOpenCase, onCreateCase }: {
   onOpenCase: (caseId: string, destination?: CaseView) => void
   onCreateCase: () => void
 }) {
-  const totalDocuments = cases.reduce((total, item) => total + item.document_count, 0)
+  const totalDeadlines = cases.reduce((total, item) => total + (item.deadline_count || 0), 0)
   const totalPending = cases.reduce((total, item) => total + item.pending_approval_count, 0)
   return (
     <div className="wk-view wk-dashboard">
@@ -352,7 +361,7 @@ function DashboardView({ cases, currentUser, onOpenCase, onCreateCase }: {
 
       <div className="wk-dashboard-stats">
         <article><span className="blue"><WorkspaceIcon name="case" /></span><div><small>担当案件</small><strong>{cases.length}</strong><p>担当中の案件</p></div></article>
-        <article><span className="violet"><WorkspaceIcon name="documents" /></span><div><small>登録資料</small><strong>{totalDocuments}</strong><p>全案件の登録資料</p></div></article>
+        <article><span className="violet"><WorkspaceIcon name="calendar" /></span><div><small>期限</small><strong>{totalDeadlines}</strong><p>未完了の締め切り</p></div></article>
         <article><span className="orange"><WorkspaceIcon name="check" /></span><div><small>承認待ち</small><strong>{totalPending}</strong><p>確認が必要な作成結果</p></div></article>
       </div>
 
@@ -368,7 +377,7 @@ function DashboardView({ cases, currentUser, onOpenCase, onCreateCase }: {
                 <p>{item.summary || '案件概要は登録されていません。'}</p>
               </button>
               <footer>
-                <span><b>{item.document_count}</b> 資料</span>
+                <span><b>{item.deadline_count || 0}</b> 期限</span>
                 <span><b>{item.pending_approval_count}</b> 承認待ち</span>
                 <div><button onClick={() => onOpenCase(item.id, 'documents')} type="button">資料登録</button><button className="primary" onClick={() => onOpenCase(item.id, 'assistant')} type="button">書類作成</button></div>
               </footer>
@@ -390,7 +399,7 @@ export function OverviewView({ caseId, onNavigate }: { caseId: string; onNavigat
 
   if (!overview) return <ViewLoading error={error} label="案件情報を読み込んでいます" />
   const stats = [
-    ['登録資料', overview.stats.documents, '書類作成に使用できる資料'],
+    ['期限', overview.case.deadline_count || 0, '未完了の締め切り'],
     ['作成結果', overview.stats.messages, '書類案と整合性確認'],
     ['承認待ち', overview.stats.pending_approvals, '責任者の確認が必要'],
     ['操作履歴', overview.stats.audit_events, 'この案件の操作記録'],
@@ -464,6 +473,180 @@ function NewCaseForm({ onCreated }: { onCreated: (caseId: string) => void }) {
       {error && <p className="wk-form-error">{error}</p>}
       <button className="wk-primary" disabled={busy} type="submit">{busy ? '作成中…' : '案件を作成'}</button>
     </form>
+  )
+}
+
+function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; currentUser: User | null; onChanged: () => void }) {
+  const [deadlines, setDeadlines] = useState<Deadline[]>([])
+  const [monthCursor, setMonthCursor] = useState(() => new Date('2026-09-01T00:00:00'))
+  const [showForm, setShowForm] = useState(false)
+  const [title, setTitle] = useState('')
+  const [dueDate, setDueDate] = useState('2026-09-25')
+  const [kind, setKind] = useState<Deadline['kind']>('internal')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      const next = await api.deadlines(caseId)
+      setDeadlines(next)
+      if (next[0]) setMonthCursor(new Date(`${next[0].due_date}T00:00:00`))
+      setError('')
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }, [caseId])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
+
+  const cells = useMemo(() => {
+    const year = monthCursor.getFullYear()
+    const month = monthCursor.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const offset = (firstDay.getDay() + 6) % 7
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    return Array.from({ length: Math.ceil((offset + daysInMonth) / 7) * 7 }, (_, index) => {
+      const day = index - offset + 1
+      return day < 1 || day > daysInMonth ? null : new Date(year, month, day)
+    })
+  }, [monthCursor])
+
+  const openDeadlines = deadlines.filter((deadline) => deadline.status === 'open')
+  const overdueCount = openDeadlines.filter((deadline) => deadline.due_date < localDateKey(new Date())).length
+
+  async function createDeadline(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!title.trim() || !currentUser || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.createDeadline(caseId, { title: title.trim(), due_date: dueDate, kind, owner_id: currentUser.id, note })
+      setTitle('')
+      setNote('')
+      setShowForm(false)
+      await load()
+      onChanged()
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleDeadline(deadline: Deadline) {
+    try {
+      await api.updateDeadline(deadline.id, { status: deadline.status === 'completed' ? 'open' : 'completed' })
+      await load()
+      onChanged()
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }
+
+  function moveMonth(offset: number) {
+    setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+  }
+
+  return (
+    <div className="wk-view wk-calendar-view">
+      <div className="wk-view-heading compact">
+        <div><p className="wk-eyebrow">期限管理</p><h1>期限・カレンダー</h1><p>案件の締め切りを一覧とカレンダーで確認し、担当者に割り当てます。</p></div>
+        <button className="wk-primary" onClick={() => setShowForm((open) => !open)} type="button">＋ 期限を登録</button>
+      </div>
+      {error && <InlineError text={error} />}
+      <div className="wk-deadline-summary"><span><strong>{openDeadlines.length}</strong> 未完了</span><span className={overdueCount ? 'overdue' : ''}><strong>{overdueCount}</strong> 期限超過</span><span><strong>{deadlines.filter((deadline) => deadline.status === 'completed').length}</strong> 完了</span></div>
+      <div className="wk-calendar-layout">
+        <section className="wk-section wk-calendar-card">
+          <header className="wk-calendar-header"><button aria-label="前月" className="wk-secondary wk-icon-button" onClick={() => moveMonth(-1)} type="button">‹</button><h2>{monthCursor.getFullYear()}年{monthCursor.getMonth() + 1}月</h2><button aria-label="翌月" className="wk-secondary wk-icon-button" onClick={() => moveMonth(1)} type="button">›</button></header>
+          <div className="wk-calendar-weekdays">{['月', '火', '水', '木', '金', '土', '日'].map((day) => <span key={day}>{day}</span>)}</div>
+          <div className="wk-calendar-grid">
+            {cells.map((date, index) => {
+              const key = date ? localDateKey(date) : `empty-${index}`
+              const dayDeadlines = date ? deadlines.filter((deadline) => deadline.due_date === key) : []
+              return <div className={`wk-calendar-day ${date ? '' : 'empty'}`} key={key}>{date && <><time>{date.getDate()}</time>{dayDeadlines.map((deadline) => <button className={`wk-calendar-event ${deadline.status}`} key={deadline.id} onClick={() => void toggleDeadline(deadline)} title={`${deadline.title}（クリックで${deadline.status === 'completed' ? '未完了に戻す' : '完了にする'}）`} type="button"><i />{deadline.title}</button>)}</>}</div>
+            })}
+          </div>
+        </section>
+        <aside className="wk-calendar-side">
+          {showForm && <section className="wk-section wk-deadline-form-card"><header><div><p className="wk-eyebrow">新しい期限</p><h2>締め切りを登録</h2></div></header><form className="wk-deadline-form" onSubmit={(event) => void createDeadline(event)}><label><span>期限名</span><input onChange={(event) => setTitle(event.target.value)} placeholder="例：決裁者の確認" required value={title} /></label><label><span>期日</span><input onChange={(event) => setDueDate(event.target.value)} required type="date" value={dueDate} /></label><label><span>区分</span><select onChange={(event) => setKind(event.target.value as Deadline['kind'])} value={kind}>{deadlineKindOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>メモ <small>任意</small></span><textarea onChange={(event) => setNote(event.target.value)} placeholder="確認事項や完了条件" value={note} /></label><button className="wk-primary" disabled={busy} type="submit">{busy ? '登録中…' : '期限を登録'}</button></form></section>}
+          <section className="wk-section wk-deadline-list-card"><header><div><p className="wk-eyebrow">締め切り一覧</p><h2>この案件の期限</h2></div><span className="wk-section-count">{deadlines.length}件</span></header><div className="wk-deadline-list">{deadlines.map((deadline) => <article className={deadline.status === 'completed' ? 'completed' : deadline.due_date < localDateKey(new Date()) ? 'overdue' : ''} key={deadline.id}><button aria-label={`${deadline.title}を${deadline.status === 'completed' ? '未完了に戻す' : '完了にする'}`} className="wk-deadline-check" onClick={() => void toggleDeadline(deadline)} type="button">{deadline.status === 'completed' ? '✓' : ''}</button><div><strong>{deadline.title}</strong><small>{formatDeadlineDate(deadline.due_date)}・{deadline.owner_name}・{deadlineKindLabel(deadline.kind)}</small>{deadline.note && <p>{deadline.note}</p>}</div></article>)}{!deadlines.length && <EmptyState title="期限は登録されていません" text="期限を登録すると、担当者と締め切りを共有できます。" />}</div></section>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+function DecisionChatView({ caseId, currentUser }: { caseId: string; currentUser: User | null }) {
+  const [messages, setMessages] = useState<DecisionChatMessage[]>([])
+  const [body, setBody] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const canSend = Boolean(currentUser && currentUser.role !== 'viewer')
+  const load = useCallback(async () => {
+    try { setMessages(await api.decisionChat(caseId)); setError('') } catch (caught) { setError(errorMessage(caught)) }
+  }, [caseId])
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
+  const decisionMaker = messages.find((message) => message.author_role === 'lawyer')
+
+  async function send(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!body.trim() || !canSend || sending) return
+    setSending(true)
+    try { await api.sendDecisionChat(caseId, body.trim()); setBody(''); await load() } catch (caught) { setError(errorMessage(caught)) } finally { setSending(false) }
+  }
+
+  return (
+    <div className="wk-view wk-decision-chat-view">
+      <div className="wk-view-heading compact"><div><p className="wk-eyebrow">所内連絡</p><h1>決裁者とのチャット</h1><p>書類案、期限、確認事項について、確認責任者と案件内で連絡します。</p></div></div>
+      {error && <InlineError text={error} />}
+      <section className="wk-chat-card">
+        <header className="wk-decision-chat-header"><div><strong>{decisionMaker?.author_name || '確認責任者'}（決裁者）</strong><small>最終判断と承認を担当</small></div><span className="wk-chat-scope">案件内のみ</span></header>
+        <div className="wk-decision-chat-messages">{messages.map((message) => <article className={message.author_id === currentUser?.id ? 'mine' : ''} key={message.id}><div><header><strong>{message.author_name}</strong><small>{roleLabel(message.author_role)}・{formatTime(message.created_at)}</small></header><p>{message.body}</p></div></article>)}{!messages.length && <EmptyState title="まだメッセージはありません" text="確認したい内容を決裁者へ送信できます。" />}</div>
+        <form className="wk-decision-chat-composer" onSubmit={(event) => void send(event)}><textarea aria-label="決裁者へのメッセージ" disabled={!canSend || sending} onChange={(event) => setBody(event.target.value)} placeholder={canSend ? '確認したい内容を入力' : '閲覧権限ではメッセージを送信できません'} value={body} /><button className="wk-primary" disabled={!canSend || sending || !body.trim()} type="submit">送信</button></form>
+      </section>
+      <div className="wk-chat-guardrail"><span>i</span><p><strong>連絡の扱い</strong>ここでのやり取りは所内確認用です。依頼人への回答、法的判断、提出物の確定は確認責任者の承認後に行います。</p></div>
+    </div>
+  )
+}
+
+function PermissionsView({ caseId, currentUser, onChanged }: { caseId: string; currentUser: User | null; onChanged: () => void }) {
+  const [caseData, setCaseData] = useState<LegalCase | null>(null)
+  const [error, setError] = useState('')
+  const [busyId, setBusyId] = useState('')
+  const canManage = currentUser?.role === 'admin'
+  const load = useCallback(async () => {
+    try { setCaseData(await api.case(caseId)); setError('') } catch (caught) { setError(errorMessage(caught)) }
+  }, [caseId])
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
+  if (!caseData) return <ViewLoading error={error} label="権限情報を読み込んでいます" />
+
+  async function changeAccess(userId: string, accessLevel: CaseMember['access_level']) {
+    if (!canManage) return
+    setBusyId(userId)
+    try { await api.updateCaseMember(caseId, userId, accessLevel); await load(); onChanged() } catch (caught) { setError(errorMessage(caught)) } finally { setBusyId('') }
+  }
+
+  return (
+    <div className="wk-view wk-permissions-view">
+      <div className="wk-view-heading compact"><div><p className="wk-eyebrow">案件管理</p><h1>権限・非弁チェック</h1><p>案件に参加する利用者の権限と、AIが担当できる範囲を確認します。</p></div></div>
+      {error && <InlineError text={error} />}
+      {!canManage && <div className="wk-role-info"><span>i</span><p><strong>現在の権限：{roleLabel(currentUser?.role || 'viewer')}</strong>権限の変更は管理者のみ実行できます。</p></div>}
+      <div className="wk-permissions-grid">
+        <section className="wk-section"><header><div><p className="wk-eyebrow">参加者</p><h2>この案件の権限</h2></div><span className="wk-section-count">{caseData.members?.length || 0}人</span></header><div className="wk-member-list">{(caseData.members || []).map((member) => <div className="wk-member-row" key={member.id}><span className="wk-member-avatar">{member.initials}</span><div><strong>{member.display_name}</strong><small>{roleLabel(member.role)}</small></div><select aria-label={`${member.display_name}の案件権限`} disabled={!canManage || busyId === member.id} onChange={(event) => void changeAccess(member.id, event.target.value as CaseMember['access_level'])} value={member.access_level}>{accessLevelOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>)}</div></section>
+        <section className="wk-section wk-guardrail-card"><header><div><p className="wk-eyebrow">業務範囲</p><h2>非弁行為チェック</h2></div><span className="wk-check-status">確認済み</span></header><ul className="wk-guardrail-list"><li><span>✓</span><div><strong>資料整理・事実確認</strong><small>AIと担当者が補助できます。</small></div></li><li><span>✓</span><div><strong>書類案の作成</strong><small>提出前に確認責任者の承認が必要です。</small></div></li><li className="restricted"><span>!</span><div><strong>法的判断・代理・交渉</strong><small>AIと担当者は実行できません。確認責任者が判断します。</small></div></li><li className="restricted"><span>!</span><div><strong>依頼人への回答・提出</strong><small>承認済みの内容だけを使用します。</small></div></li></ul></section>
+      </div>
+      <section className="wk-section wk-permission-notice"><strong>権限の考え方</strong><p>案件の閲覧権限と、承認・外部送信などの実行権限を分けて管理します。権限変更の操作は操作履歴に記録されます。</p></section>
+    </div>
   )
 }
 
@@ -955,7 +1138,22 @@ const documentKindOptions = [
   ['target_contract', '確認対象の書面案'], ['internal_template', '所内書式・ひな形'], ['past_review', '過去案件の確認記録'], ['checklist', '確認項目表'], ['consultation', '相談・面談記録'], ['evidence', '証拠・明細資料'], ['email', 'メール・連絡記録'], ['regulation', '規程・参考基準'], ['reference', 'その他の参考資料'],
 ] as const
 
+const deadlineKindOptions: Array<[Deadline['kind'], string]> = [
+  ['court', '裁判所・行政'],
+  ['client', '依頼人対応'],
+  ['internal', '所内対応'],
+  ['other', 'その他'],
+]
+
+const accessLevelOptions: Array<[CaseMember['access_level'], string]> = [
+  ['owner', '案件責任者'],
+  ['reviewer', '確認責任者'],
+  ['editor', '編集担当'],
+  ['viewer', '閲覧のみ'],
+]
+
 function documentKindLabel(kind: string) { return documentKindOptions.find(([value]) => value === kind)?.[1] || '参考資料' }
+function deadlineKindLabel(kind: Deadline['kind']) { return deadlineKindOptions.find(([value]) => value === kind)?.[1] || 'その他' }
 function caseStatusLabel(status: string) { return ({ preparing: '準備中', active: '進行中', reviewing: '確認中', pending: '対応待ち', pending_approval: '承認待ち', closed: '完了' } as Record<string, string>)[status] || '進行中' }
 function taskLabel(task: TaskType) { return taskOptions.find((item) => item.id === task)?.title || ({ clause: '修正文案', mail: '説明メール', checklist: '確認事項', timeline: '時系列表', general: '質問・相談', contract_review: '契約書確認', legal_research: '法令・判例調査', litigation: '紛争整理', client_support: '依頼人対応' } as Record<string, string>)[task] || '質問・相談' }
 function roleLabel(role: User['role'] | 'viewer') { return ({ admin: '管理者', lawyer: '確認責任者', staff: '担当者', viewer: '閲覧者' } as const)[role] }
@@ -979,9 +1177,11 @@ function normalizeStoredMessageCopy(value: string) {
 function messageStatusLabel(status: string) { return ({ review_required: '未確認', complete: '完了' } as Record<string, string>)[status] || status }
 function formatDate(value: string) { return new Intl.DateTimeFormat('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
 function formatTime(value: string) { return new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
+function formatDeadlineDate(value: string) { return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' }).format(new Date(`${value}T00:00:00`)) }
+function localDateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(value)) }
-function auditLabel(event: string) { return ({ 'case.created': '案件を作成', 'case.updated': '案件を更新', 'case.member_updated': '担当者権限を変更', 'document.uploaded': '資料を登録', 'document.viewed': '資料を閲覧', 'document.deleted': '資料を削除', 'document.parse_failed': '資料の読取失敗', 'search.completed': '案件資料を検索', 'generation.completed': '作成処理を実行', 'draft.saved': '書類案を保存', 'finding.updated': '確認事項を更新', 'message.feedback': '回答を評価', 'approval.approved': '作成結果を承認', 'approval.rejected': '作成結果を差戻し', 'connector.read': '連携先を参照', 'connector.read_failed': '連携先の参照失敗', 'connector.write_requested': '連携操作の承認を依頼', 'connector.write_failed': '連携操作に失敗', 'connector.configured': '連携設定を変更' } as Record<string, string>)[event] || event }
-function auditTargetLabel(target: string) { return ({ case: '案件', document: '資料', message: '作成結果', draft: '書類案', finding: '確認事項', user: '利用者', connector: '連携設定', connector_action: '連携操作' } as Record<string, string>)[target] || target }
+function auditLabel(event: string) { return ({ 'case.created': '案件を作成', 'case.updated': '案件を更新', 'case.member_updated': '担当者権限を変更', 'document.uploaded': '資料を登録', 'document.viewed': '資料を閲覧', 'document.deleted': '資料を削除', 'document.parse_failed': '資料の読取失敗', 'search.completed': '案件資料を検索', 'generation.completed': '作成処理を実行', 'draft.saved': '書類案を保存', 'finding.updated': '確認事項を更新', 'message.feedback': '回答を評価', 'approval.approved': '作成結果を承認', 'approval.rejected': '作成結果を差戻し', 'deadline.created': '期限を登録', 'deadline.completed': '期限を完了', 'deadline.reopened': '期限を未完了に戻す', 'decision_chat.sent': '決裁者とのチャットを送信', 'connector.read': '連携先を参照', 'connector.read_failed': '連携先の参照失敗', 'connector.write_requested': '連携操作の承認を依頼', 'connector.write_failed': '連携操作に失敗', 'connector.configured': '連携設定を変更' } as Record<string, string>)[event] || event }
+function auditTargetLabel(target: string) { return ({ case: '案件', document: '資料', message: '作成結果', draft: '書類案', finding: '確認事項', deadline: '期限', decision_chat: '決裁者とのチャット', user: '利用者', connector: '連携設定', connector_action: '連携操作' } as Record<string, string>)[target] || target }
 function errorMessage(caught: unknown) { return caught instanceof Error ? caught.message : '処理に失敗しました。' }
 
 function WorkspaceIcon({ name }: { name: WorkspaceIconName }) {
@@ -990,6 +1190,9 @@ function WorkspaceIcon({ name }: { name: WorkspaceIconName }) {
     case: <><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M8 6V4h8v2M3 11h18M10 11v2h4v-2" /></>,
     spark: <><path d="M12 2 9.8 8.8 3 11l6.8 2.2L12 20l2.2-6.8L21 11l-6.8-2.2L12 2Z" /></>,
     documents: <><path d="M6 3h9l3 3v15H6z" /><path d="M15 3v4h4M9 11h6M9 15h6" /></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h6" /></>,
+    chat: <><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /><path d="M7 10h10M7 14h6" /></>,
+    shield: <><path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></>,
     check: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></>,
     history: <><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5" /><path d="M4 4v4.5h4.5M12 7v5l3 2" /></>,
   }

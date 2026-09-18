@@ -4,6 +4,8 @@ import type {
   CaseDocument,
   CaseOverview,
   Connector,
+  DecisionChatMessage,
+  Deadline,
   DraftVersion,
   FindingResolution,
   Health,
@@ -83,6 +85,16 @@ const backendApi = {
   findingResolutions: (messageId: string) => request<FindingResolution[]>(`/messages/${encodeURIComponent(messageId)}/findings`),
   updateFindingResolution: (messageId: string, findingIndex: number, body: { status: FindingResolution['status']; note?: string }) =>
     request<FindingResolution>(`/messages/${encodeURIComponent(messageId)}/findings/${findingIndex}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deadlines: (caseId: string) => request<Deadline[]>(`/cases/${encodeURIComponent(caseId)}/deadlines`),
+  createDeadline: (caseId: string, body: { title: string; due_date: string; kind: Deadline['kind']; owner_id: string; note: string }) =>
+    request<Deadline>(`/cases/${encodeURIComponent(caseId)}/deadlines`, { method: 'POST', body: JSON.stringify(body) }),
+  updateDeadline: (deadlineId: string, body: { status: Deadline['status'] }) =>
+    request<Deadline>(`/deadlines/${encodeURIComponent(deadlineId)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  decisionChat: (caseId: string) => request<DecisionChatMessage[]>(`/cases/${encodeURIComponent(caseId)}/decision-chat`),
+  sendDecisionChat: (caseId: string, body: string) =>
+    request<DecisionChatMessage>(`/cases/${encodeURIComponent(caseId)}/decision-chat`, { method: 'POST', body: JSON.stringify({ body }) }),
+  updateCaseMember: (caseId: string, userId: string, access_level: 'owner' | 'reviewer' | 'editor' | 'viewer') =>
+    request<LegalCase>(`/cases/${encodeURIComponent(caseId)}/members`, { method: 'PUT', body: JSON.stringify({ user_id: userId, access_level }) }),
   approvals: (caseId: string) => request<Approval[]>(`/cases/${encodeURIComponent(caseId)}/approvals`),
   decideApproval: (approvalId: string, decision: 'approved' | 'rejected', comment = '') =>
     request<{ ok: boolean; status: string }>(`/approvals/${encodeURIComponent(approvalId)}/decision`, {

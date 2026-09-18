@@ -97,6 +97,22 @@ class MemberUpdate(BaseModel):
     access_level: Literal["owner", "reviewer", "editor", "viewer"]
 
 
+class DeadlineCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    due_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    kind: Literal["court", "client", "internal", "other"] = "internal"
+    owner_id: str
+    note: str = Field(default="", max_length=2000)
+
+
+class DeadlineUpdate(BaseModel):
+    status: Literal["open", "completed"]
+
+
+class DecisionChatCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+
+
 class MessageCreate(BaseModel):
     question: str = Field(min_length=1, max_length=12000)
     task_type: Literal[
@@ -292,6 +308,8 @@ def get_case(case_id: str, user: CurrentUser) -> dict[str, Any]:
 @app.patch("/api/cases/{case_id}")
 def update_case(case_id: str, body: CaseUpdate, user: CurrentUser) -> dict[str, Any]:
     changes = body.model_dump(exclude_none=True)
+    if changes.get("status") in {"approved", "closed"}:
+        require_reviewer(user)
     with connect() as connection:
         require_case_access(connection, case_id, user, write=True)
         if changes:
@@ -312,7 +330,7 @@ def update_member(case_id: str, body: MemberUpdate, user: CurrentUser) -> dict[s
         raise HTTPException(status_code=403, detail="担当者の変更は管理者のみ実行できます。")
     with connect() as connection:
         require_case_access(connection, case_id, user, write=True)
-        target = connection.execute("SELECT id FROM users WHERE id = ?", (body.user_id,)).fetchone()
+        target = connection.execute("SELECT id FROM users WHERE id = ? AND active = 1", (body.user_id,)).fetchone()
         if not target:
             raise HTTPException(status_code=404, detail="利用者が見つかりません。")
         connection.execute(
@@ -321,7 +339,89 @@ def update_member(case_id: str, body: MemberUpdate, user: CurrentUser) -> dict[s
             (case_id, body.user_id, body.access_level),
         )
         audit(connection, user_id=user["id"], event_type="case.member_updated", target_type="user", target_id=body.user_id, case_id=case_id, detail={"access_level": body.access_level})
-        return {"ok": True}
+        case = row_dict(connection.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone())
+        assert case is not None
+        return _case_payload(connection, case, include_members=True)
+
+
+@app.get("/api/cases/{case_id}/deadlines")
+def list_deadlines(case_id: str, user: CurrentUser) -> list[dict[str, Any]]:
+    with connect() as connection:
+        require_case_access(connection, case_id, user)
+        rows = connection.execute(
+            """SELECT d.*, u.display_name AS owner_name
+               FROM deadlines d JOIN users u ON u.id = d.owner_id
+               WHERE d.case_id = ? ORDER BY d.due_date, d.created_at""",
+            (case_id,),
+        ).fetchall()
+        return rows_dict(rows)
+
+
+@app.post("/api/cases/{case_id}/deadlines", status_code=201)
+def create_deadline(case_id: str, body: DeadlineCreate, user: CurrentUser) -> dict[str, Any]:
+    deadline_id = f"deadline-{uuid.uuid4().hex}"
+    now = utc_now()
+    with connect() as connection:
+        require_case_access(connection, case_id, user, write=True)
+        owner = connection.execute(
+            """SELECT u.id, u.display_name FROM users u
+               JOIN case_members cm ON cm.user_id = u.id
+               WHERE cm.case_id = ? AND u.id = ? AND u.active = 1""",
+            (case_id, body.owner_id),
+        ).fetchone()
+        if not owner:
+            raise HTTPException(status_code=403, detail="期限の担当者は、この案件の参加者から選択してください。")
+        connection.execute(
+            """INSERT INTO deadlines(id, case_id, title, due_date, kind, status, owner_id, note, created_by, created_at)
+               VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)""",
+            (deadline_id, case_id, body.title, body.due_date, body.kind, body.owner_id, body.note, user["id"], now),
+        )
+        audit(connection, user_id=user["id"], event_type="deadline.created", target_type="deadline", target_id=deadline_id, case_id=case_id, detail={"due_date": body.due_date})
+        row = row_dict(connection.execute("SELECT d.*, u.display_name AS owner_name FROM deadlines d JOIN users u ON u.id = d.owner_id WHERE d.id = ?", (deadline_id,)).fetchone())
+        assert row is not None
+        return row
+
+
+@app.patch("/api/deadlines/{deadline_id}")
+def update_deadline(deadline_id: str, body: DeadlineUpdate, user: CurrentUser) -> dict[str, Any]:
+    with connect() as connection:
+        deadline = row_dict(connection.execute("SELECT * FROM deadlines WHERE id = ?", (deadline_id,)).fetchone())
+        if not deadline:
+            raise HTTPException(status_code=404, detail="期限が見つかりません。")
+        require_case_access(connection, deadline["case_id"], user, write=True)
+        connection.execute("UPDATE deadlines SET status = ? WHERE id = ?", (body.status, deadline_id))
+        event = "deadline.completed" if body.status == "completed" else "deadline.reopened"
+        audit(connection, user_id=user["id"], event_type=event, target_type="deadline", target_id=deadline_id, case_id=deadline["case_id"])
+        row = row_dict(connection.execute("SELECT d.*, u.display_name AS owner_name FROM deadlines d JOIN users u ON u.id = d.owner_id WHERE d.id = ?", (deadline_id,)).fetchone())
+        assert row is not None
+        return row
+
+
+@app.get("/api/cases/{case_id}/decision-chat")
+def list_decision_chat(case_id: str, user: CurrentUser) -> list[dict[str, Any]]:
+    with connect() as connection:
+        require_case_access(connection, case_id, user)
+        rows = connection.execute(
+            """SELECT c.id, c.case_id, c.body, c.author_id, u.display_name AS author_name,
+                      u.role AS author_role, c.created_at
+               FROM decision_chat_messages c JOIN users u ON u.id = c.author_id
+               WHERE c.case_id = ? ORDER BY c.created_at""",
+            (case_id,),
+        ).fetchall()
+        return rows_dict(rows)
+
+
+@app.post("/api/cases/{case_id}/decision-chat", status_code=201)
+def send_decision_chat(case_id: str, body: DecisionChatCreate, user: CurrentUser) -> dict[str, Any]:
+    message_id = f"chat-{uuid.uuid4().hex}"
+    now = utc_now()
+    with connect() as connection:
+        require_case_access(connection, case_id, user, write=True)
+        connection.execute("INSERT INTO decision_chat_messages(id, case_id, body, author_id, created_at) VALUES (?, ?, ?, ?, ?)", (message_id, case_id, body.body, user["id"], now))
+        audit(connection, user_id=user["id"], event_type="decision_chat.sent", target_type="decision_chat", target_id=message_id, case_id=case_id)
+        row = row_dict(connection.execute("""SELECT c.id, c.case_id, c.body, c.author_id, u.display_name AS author_name, u.role AS author_role, c.created_at FROM decision_chat_messages c JOIN users u ON u.id = c.author_id WHERE c.id = ?""", (message_id,)).fetchone())
+        assert row is not None
+        return row
 
 
 @app.get("/api/cases/{case_id}/overview")
@@ -770,6 +870,10 @@ def _case_payload(connection: sqlite3.Connection, case: dict[str, Any], include_
     payload = dict(case)
     payload["document_count"] = connection.execute("SELECT COUNT(*) FROM documents WHERE case_id = ? AND deleted_at IS NULL", (case["id"],)).fetchone()[0]
     payload["pending_approval_count"] = connection.execute("SELECT COUNT(*) FROM approvals WHERE case_id = ? AND status = 'pending'", (case["id"],)).fetchone()[0]
+    deadline = connection.execute("SELECT due_date, title FROM deadlines WHERE case_id = ? AND status = 'open' ORDER BY due_date LIMIT 1", (case["id"],)).fetchone()
+    payload["deadline_count"] = connection.execute("SELECT COUNT(*) FROM deadlines WHERE case_id = ? AND status = 'open'", (case["id"],)).fetchone()[0]
+    payload["next_deadline_at"] = deadline["due_date"] if deadline else None
+    payload["next_deadline_title"] = deadline["title"] if deadline else None
     if include_members:
         payload["members"] = rows_dict(connection.execute("""SELECT u.id, u.display_name, u.initials, u.role, cm.access_level FROM case_members cm JOIN users u ON u.id = cm.user_id WHERE cm.case_id = ? ORDER BY cm.access_level""", (case["id"],)).fetchall())
     return payload

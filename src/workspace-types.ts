@@ -20,6 +20,9 @@ export type LegalCase = {
   owner_id: string
   document_count: number
   pending_approval_count: number
+  deadline_count?: number
+  next_deadline_at?: string | null
+  next_deadline_title?: string | null
   created_at: string
   updated_at: string
   access_level?: string
@@ -35,6 +38,32 @@ export type CaseOverview = {
     audit_events: number
   }
   latest_messages: Message[]
+}
+
+export type DeadlineKind = 'court' | 'client' | 'internal' | 'other'
+
+export type Deadline = {
+  id: string
+  case_id: string
+  title: string
+  due_date: string
+  kind: DeadlineKind
+  status: 'open' | 'completed'
+  owner_id: string
+  owner_name: string
+  note: string
+  created_by: string
+  created_at: string
+}
+
+export type DecisionChatMessage = {
+  id: string
+  case_id: string
+  body: string
+  author_id: string
+  author_name: string
+  author_role: UserRole
+  created_at: string
 }
 
 export type DocumentKind =
