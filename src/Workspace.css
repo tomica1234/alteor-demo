@@ -3641,6 +3641,25 @@
 }
 
 /* Deadline, chat, and permissions work areas. */
+.wk-compliance-check {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: start;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #b8d1df;
+  border-radius: 0.25rem;
+  color: #174f76;
+  background: #eef6fa;
+}
+
+.wk-compliance-check.compact { margin: 0.75rem 0; padding: 0.62rem 0.7rem; }
+.wk-compliance-mark { display: grid; width: 1.2rem; height: 1.2rem; place-items: center; border-radius: 50%; color: #fff; background: var(--wk-green); font-size: 0.68rem; font-weight: 700; }
+.wk-compliance-check strong { display: block; color: #174f76; font-size: 0.72rem; }
+.wk-compliance-check p { margin: 0.18rem 0 0; color: #315c75; font-size: 0.68rem; line-height: 1.45; }
+.wk-compliance-check small { max-width: 19rem; color: #315c75; font-size: 0.64rem; line-height: 1.45; text-align: right; }
+
 .wk-deadline-summary {
   display: flex;
   flex-wrap: wrap;
@@ -3801,6 +3820,8 @@
 .wk-chat-guardrail strong { color: var(--wk-ink); }
 
 .wk-member-list { display: grid; gap: 0; }
+.wk-members-intro { margin: -0.4rem 0 1rem; color: var(--wk-secondary); font-size: 0.7rem; line-height: 1.55; }
+.wk-members-note { margin: 1rem 0 0; padding-top: 0.8rem; border-top: 1px solid var(--wk-soft-line); color: var(--wk-secondary); font-size: 0.67rem; line-height: 1.55; }
 .wk-member-row { display: grid; grid-template-columns: 2.1rem minmax(0, 1fr) minmax(7.7rem, auto); gap: 0.65rem; align-items: center; padding: 0.72rem 0; border-top: 1px solid var(--wk-soft-line); }
 .wk-member-row:first-child { border-top: 0; padding-top: 0; }
 .wk-member-row:last-child { padding-bottom: 0; }
@@ -3905,6 +3926,8 @@
   .wk-decision-chat-composer button { justify-self: start; }
   .wk-member-row { grid-template-columns: 2.1rem minmax(0, 1fr); }
   .wk-member-row select { grid-column: 2; width: 100%; }
+  .wk-compliance-check { grid-template-columns: 1.35rem minmax(0, 1fr); }
+  .wk-compliance-check small { grid-column: 2; max-width: none; text-align: left; }
 }
 
 @media (prefers-reduced-motion: reduce) {

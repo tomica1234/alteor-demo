@@ -19,19 +19,18 @@ import type {
 } from './workspace-types'
 import './Workspace.css'
 
-type WorkspaceView = 'dashboard' | 'shared' | 'overview' | 'documents' | 'assistant' | 'calendar' | 'chat' | 'approvals' | 'permissions' | 'audit'
+type WorkspaceView = 'dashboard' | 'shared' | 'overview' | 'documents' | 'assistant' | 'calendar' | 'chat' | 'approvals' | 'audit'
 type CaseView = Exclude<WorkspaceView, 'dashboard' | 'shared'>
 
-type WorkspaceIconName = 'home' | 'case' | 'spark' | 'documents' | 'calendar' | 'chat' | 'shield' | 'check' | 'history'
+type WorkspaceIconName = 'home' | 'case' | 'spark' | 'documents' | 'calendar' | 'chat' | 'check' | 'history'
 
 const caseViews: Array<{ id: CaseView; label: string; icon: WorkspaceIconName }> = [
   { id: 'overview', label: '案件概要', icon: 'case' },
   { id: 'documents', label: '入力資料', icon: 'documents' },
   { id: 'assistant', label: 'AI作成ファイル', icon: 'spark' },
   { id: 'calendar', label: '期限・カレンダー', icon: 'calendar' },
-  { id: 'chat', label: '決裁者とのチャット', icon: 'chat' },
+  { id: 'chat', label: '案件チャット', icon: 'chat' },
   { id: 'approvals', label: '確認・承認', icon: 'check' },
-  { id: 'permissions', label: '権限・非弁チェック', icon: 'shield' },
   { id: 'audit', label: '操作履歴', icon: 'history' },
 ]
 
@@ -241,13 +240,12 @@ export default function Workspace() {
         <div className="wk-content">
           {view === 'dashboard' && <DashboardView cases={cases} currentUser={currentUser} onCreateCase={() => setShowCreateCase(true)} onOpenCase={openCase} />}
           {view === 'shared' && <SharedResourcesView />}
-          {currentCase && view === 'overview' && <OverviewView caseId={currentCase.id} onNavigate={selectView} />}
+          {currentCase && view === 'overview' && <OverviewView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
           {currentCase && view === 'documents' && <DocumentsView caseId={currentCase.id} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
-          {currentCase && view === 'assistant' && <AssistantView caseId={currentCase.id} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
+          {currentCase && view === 'assistant' && <AssistantView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} onNavigate={selectView} />}
           {currentCase && view === 'calendar' && <CalendarView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} />}
-          {currentCase && view === 'chat' && <DecisionChatView caseId={currentCase.id} currentUser={currentUser} />}
+          {currentCase && view === 'chat' && <CaseChatView caseId={currentCase.id} currentUser={currentUser} />}
           {currentCase && view === 'approvals' && <ApprovalsView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} />}
-          {currentCase && view === 'permissions' && <PermissionsView caseId={currentCase.id} currentUser={currentUser} onChanged={() => void loadShell(currentCase.id)} />}
           {currentCase && view === 'audit' && <AuditView caseId={currentCase.id} />}
         </div>
       </section>
@@ -389,7 +387,7 @@ function DashboardView({ cases, currentUser, onOpenCase, onCreateCase }: {
   )
 }
 
-export function OverviewView({ caseId, onNavigate }: { caseId: string; onNavigate: (view: WorkspaceView) => void }) {
+export function OverviewView({ caseId, currentUser, onChanged, onNavigate }: { caseId: string; currentUser: User | null; onChanged: () => void; onNavigate: (view: WorkspaceView) => void }) {
   const [overview, setOverview] = useState<CaseOverview | null>(null)
   const [error, setError] = useState('')
 
@@ -441,6 +439,8 @@ export function OverviewView({ caseId, onNavigate }: { caseId: string; onNavigat
           <button onClick={() => onNavigate('approvals')} type="button">確認・承認</button>
         </section>
       </div>
+
+      <CaseMembersPanel caseId={caseId} currentUser={currentUser} onChanged={onChanged} />
 
     </div>
   )
@@ -580,21 +580,25 @@ function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; curr
   )
 }
 
-function DecisionChatView({ caseId, currentUser }: { caseId: string; currentUser: User | null }) {
+function CaseChatView({ caseId, currentUser }: { caseId: string; currentUser: User | null }) {
   const [messages, setMessages] = useState<DecisionChatMessage[]>([])
+  const [members, setMembers] = useState<CaseMember[]>([])
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const canSend = Boolean(currentUser && currentUser.role !== 'viewer')
   const load = useCallback(async () => {
-    try { setMessages(await api.decisionChat(caseId)); setError('') } catch (caught) { setError(errorMessage(caught)) }
+    try {
+      const [nextMessages, caseData] = await Promise.all([api.decisionChat(caseId), api.case(caseId)])
+      setMessages(nextMessages)
+      setMembers(caseData.members || [])
+      setError('')
+    } catch (caught) { setError(errorMessage(caught)) }
   }, [caseId])
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timer)
   }, [load])
-  const decisionMaker = messages.find((message) => message.author_role === 'lawyer')
-
   async function send(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!body.trim() || !canSend || sending) return
@@ -604,19 +608,19 @@ function DecisionChatView({ caseId, currentUser }: { caseId: string; currentUser
 
   return (
     <div className="wk-view wk-decision-chat-view">
-      <div className="wk-view-heading compact"><div><p className="wk-eyebrow">所内連絡</p><h1>決裁者とのチャット</h1><p>書類案、期限、確認事項について、確認責任者と案件内で連絡します。</p></div></div>
+      <div className="wk-view-heading compact"><div><p className="wk-eyebrow">案件内連絡</p><h1>案件チャット</h1><p>書類案、期限、確認事項について、案件参加者どうしで連絡します。</p></div></div>
       {error && <InlineError text={error} />}
       <section className="wk-chat-card">
-        <header className="wk-decision-chat-header"><div><strong>{decisionMaker?.author_name || '確認責任者'}（決裁者）</strong><small>最終判断と承認を担当</small></div><span className="wk-chat-scope">案件内のみ</span></header>
-        <div className="wk-decision-chat-messages">{messages.map((message) => <article className={message.author_id === currentUser?.id ? 'mine' : ''} key={message.id}><div><header><strong>{message.author_name}</strong><small>{roleLabel(message.author_role)}・{formatTime(message.created_at)}</small></header><p>{message.body}</p></div></article>)}{!messages.length && <EmptyState title="まだメッセージはありません" text="確認したい内容を決裁者へ送信できます。" />}</div>
-        <form className="wk-decision-chat-composer" onSubmit={(event) => void send(event)}><textarea aria-label="決裁者へのメッセージ" disabled={!canSend || sending} onChange={(event) => setBody(event.target.value)} placeholder={canSend ? '確認したい内容を入力' : '閲覧権限ではメッセージを送信できません'} value={body} /><button className="wk-primary" disabled={!canSend || sending || !body.trim()} type="submit">送信</button></form>
+        <header className="wk-decision-chat-header"><div><strong>案件参加者 {members.length}人</strong><small>{members.map((member) => `${member.display_name}（${roleLabel(member.role)}）`).join('・') || '参加者情報を読み込んでいます'}</small></div><span className="wk-chat-scope">案件内のみ</span></header>
+        <div className="wk-decision-chat-messages">{messages.map((message) => <article className={message.author_id === currentUser?.id ? 'mine' : ''} key={message.id}><div><header><strong>{message.author_name}</strong><small>{roleLabel(message.author_role)}・{formatTime(message.created_at)}</small></header><p>{message.body}</p></div></article>)}{!messages.length && <EmptyState title="まだメッセージはありません" text="案件参加者へ確認したい内容を送信できます。" />}</div>
+        <form className="wk-decision-chat-composer" onSubmit={(event) => void send(event)}><textarea aria-label="案件参加者へのメッセージ" disabled={!canSend || sending} onChange={(event) => setBody(event.target.value)} placeholder={canSend ? '案件参加者へメッセージを入力' : '閲覧権限ではメッセージを送信できません'} value={body} /><button className="wk-primary" disabled={!canSend || sending || !body.trim()} type="submit">送信</button></form>
       </section>
-      <div className="wk-chat-guardrail"><span>i</span><p><strong>連絡の扱い</strong>ここでのやり取りは所内確認用です。依頼人への回答、法的判断、提出物の確定は確認責任者の承認後に行います。</p></div>
+      <ComplianceCheck context="chat" currentUser={currentUser} />
     </div>
   )
 }
 
-function PermissionsView({ caseId, currentUser, onChanged }: { caseId: string; currentUser: User | null; onChanged: () => void }) {
+function CaseMembersPanel({ caseId, currentUser, onChanged }: { caseId: string; currentUser: User | null; onChanged: () => void }) {
   const [caseData, setCaseData] = useState<LegalCase | null>(null)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
@@ -628,7 +632,7 @@ function PermissionsView({ caseId, currentUser, onChanged }: { caseId: string; c
     const timer = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timer)
   }, [load])
-  if (!caseData) return <ViewLoading error={error} label="権限情報を読み込んでいます" />
+  if (!caseData) return <section className="wk-section wk-members-section"><ViewLoading error={error} label="参加者情報を読み込んでいます" /></section>
 
   async function changeAccess(userId: string, accessLevel: CaseMember['access_level']) {
     if (!canManage) return
@@ -637,16 +641,14 @@ function PermissionsView({ caseId, currentUser, onChanged }: { caseId: string; c
   }
 
   return (
-    <div className="wk-view wk-permissions-view">
-      <div className="wk-view-heading compact"><div><p className="wk-eyebrow">案件管理</p><h1>権限・非弁チェック</h1><p>案件に参加する利用者の権限と、AIが担当できる範囲を確認します。</p></div></div>
+    <section className="wk-section wk-members-section">
+      <header><div><p className="wk-eyebrow">案件管理</p><h2>参加者と権限</h2></div><span className="wk-section-count">{caseData.members?.length || 0}人</span></header>
+      <p className="wk-members-intro">案件参加者の閲覧・編集・確認権限を管理します。業務範囲の確認は、書類作成や承認の操作中に行います。</p>
       {error && <InlineError text={error} />}
       {!canManage && <div className="wk-role-info"><span>i</span><p><strong>現在の権限：{roleLabel(currentUser?.role || 'viewer')}</strong>権限の変更は管理者のみ実行できます。</p></div>}
-      <div className="wk-permissions-grid">
-        <section className="wk-section"><header><div><p className="wk-eyebrow">参加者</p><h2>この案件の権限</h2></div><span className="wk-section-count">{caseData.members?.length || 0}人</span></header><div className="wk-member-list">{(caseData.members || []).map((member) => <div className="wk-member-row" key={member.id}><span className="wk-member-avatar">{member.initials}</span><div><strong>{member.display_name}</strong><small>{roleLabel(member.role)}</small></div><select aria-label={`${member.display_name}の案件権限`} disabled={!canManage || busyId === member.id} onChange={(event) => void changeAccess(member.id, event.target.value as CaseMember['access_level'])} value={member.access_level}>{accessLevelOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>)}</div></section>
-        <section className="wk-section wk-guardrail-card"><header><div><p className="wk-eyebrow">業務範囲</p><h2>非弁行為チェック</h2></div><span className="wk-check-status">確認済み</span></header><ul className="wk-guardrail-list"><li><span>✓</span><div><strong>資料整理・事実確認</strong><small>AIと担当者が補助できます。</small></div></li><li><span>✓</span><div><strong>書類案の作成</strong><small>提出前に確認責任者の承認が必要です。</small></div></li><li className="restricted"><span>!</span><div><strong>法的判断・代理・交渉</strong><small>AIと担当者は実行できません。確認責任者が判断します。</small></div></li><li className="restricted"><span>!</span><div><strong>依頼人への回答・提出</strong><small>承認済みの内容だけを使用します。</small></div></li></ul></section>
-      </div>
-      <section className="wk-section wk-permission-notice"><strong>権限の考え方</strong><p>案件の閲覧権限と、承認・外部送信などの実行権限を分けて管理します。権限変更の操作は操作履歴に記録されます。</p></section>
-    </div>
+      <div className="wk-member-list">{(caseData.members || []).map((member) => <div className="wk-member-row" key={member.id}><span className="wk-member-avatar">{member.initials}</span><div><strong>{member.display_name}</strong><small>{roleLabel(member.role)}</small></div><select aria-label={`${member.display_name}の案件権限`} disabled={!canManage || busyId === member.id} onChange={(event) => void changeAccess(member.id, event.target.value as CaseMember['access_level'])} value={member.access_level}>{accessLevelOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>)}</div>
+      <p className="wk-members-note">権限変更は操作履歴に記録されます。承認・対外連絡の実行権限は、確認責任者の承認と分けて管理します。</p>
+    </section>
   )
 }
 
@@ -764,7 +766,26 @@ function DocumentDrawer({ document, citation, onClose }: { document: CaseDocumen
   )
 }
 
-function AssistantView({ caseId, onChanged, onNavigate }: { caseId: string; onChanged: () => void; onNavigate: (view: WorkspaceView) => void }) {
+type ComplianceContext = 'draft' | 'consistency' | 'chat' | 'approval'
+
+function ComplianceCheck({ context, currentUser, compact = false }: { context: ComplianceContext; currentUser?: User | null; compact?: boolean }) {
+  const copy = {
+    draft: { scope: '資料に基づく書類案の作成までを補助します。', rule: '提出・対外回答には確認責任者の承認が必要です。' },
+    consistency: { scope: '氏名・日付・金額・引用の不一致候補を整理します。', rule: '判断と修正は担当者が原資料を確認して行います。' },
+    chat: { scope: '案件参加者間の事実確認・作業連絡に限定します。', rule: '法的判断、代理、交渉、依頼人への回答は扱いません。' },
+    approval: { scope: '作成内容と参照資料を確認責任者が確認します。', rule: '承認前の内容は提出・対外連絡に使用できません。' },
+  }[context]
+  const roleNote = currentUser?.role === 'viewer' ? '閲覧権限では編集・送信できません。' : copy.rule
+  return (
+    <aside aria-label="業務範囲の確認" className={`wk-compliance-check ${compact ? 'compact' : ''}`}>
+      <span className="wk-compliance-mark">✓</span>
+      <div><strong>業務範囲を確認</strong><p>{copy.scope}</p></div>
+      <small>{roleNote}</small>
+    </aside>
+  )
+}
+
+function AssistantView({ caseId, currentUser, onChanged, onNavigate }: { caseId: string; currentUser: User | null; onChanged: () => void; onNavigate: (view: WorkspaceView) => void }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [documents, setDocuments] = useState<CaseDocument[]>([])
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([])
@@ -900,6 +921,7 @@ function AssistantView({ caseId, onChanged, onNavigate }: { caseId: string; onCh
       <section className="wk-workflow-setup">
         <div className="wk-workflow-setup-head"><div><p className="wk-eyebrow">書類作成</p><h1>作業条件</h1><p>作業内容と使用する資料を選択してください。</p></div><button className="wk-secondary" onClick={() => onNavigate('documents')} type="button">資料管理</button></div>
         <div className="wk-task-choice">{taskOptions.map((task) => <button className={activeTask === task.id ? 'active' : ''} key={task.id} onClick={() => selectTask(task.id)} type="button"><b>{task.icon}</b><span><strong>{task.title}</strong><small>{task.description}</small></span></button>)}</div>
+        <ComplianceCheck context={activeTask === 'consistency_check' ? 'consistency' : 'draft'} currentUser={currentUser} />
         <div className="wk-workflow-fields">
           <div className="wk-document-picker"><span>使用する資料 <b>{selectedDocumentIds.length}件</b></span><div>{documents.filter((document) => document.status === 'ready').map((document) => <label key={document.id}><input checked={selectedDocumentIds.includes(document.id)} onChange={(event) => setSelectedDocumentIds((current) => event.target.checked ? [...current, document.id] : current.filter((id) => id !== document.id))} type="checkbox" /><span>{document.name}</span></label>)}</div><button onClick={() => setSelectedDocumentIds(documents.filter((document) => document.status === 'ready').map((document) => document.id))} type="button">すべて選択</button></div>
           <label><span>{activeTask === 'draft' ? '書類名' : '確認対象'}</span><input onChange={(event) => setDraftTitle(event.target.value)} placeholder="例：調査報告書／回答書" value={draftTitle} /></label>
@@ -977,6 +999,7 @@ function AssistantMessage({ message, approval, canApprove, onCitation, onFeedbac
         <div className="wk-message-meta"><strong>Alteor</strong><small>{formatTime(message.created_at)}</small></div>
         <div className="wk-ai-bubble wk-chat-bubble">
           <p className="wk-chat-content">{normalizeStoredMessageCopy(message.content)}</p>
+          <ComplianceCheck compact context="chat" />
           {message.citations.length > 0 && <details className="wk-sources"><summary>参照資料 <span>{message.citations.length}件</span></summary><div>{message.citations.map((source, index) => <button key={`${source.chunk_id}-${index}`} onClick={() => onCitation(source)} type="button"><b>{index + 1}</b><span><strong>{source.document_name}</strong><small>{source.locator}</small><p>{source.excerpt}</p></span><i>↗</i></button>)}</div></details>}
           <div className="wk-message-actions">
             <button onClick={() => void navigator.clipboard.writeText(normalizeStoredMessageCopy(message.content))} type="button">回答をコピー</button>
@@ -994,6 +1017,7 @@ function AssistantMessage({ message, approval, canApprove, onCitation, onFeedbac
         <div className="wk-message-meta"><strong>Alteor</strong><small>{formatTime(message.created_at)}・v{message.version}</small></div>
         <div className="wk-ai-bubble">
           <header><span>{payload.label}</span><h2>{payload.title}</h2>{payload.findings.some((finding) => finding.severity === 'high') && <b>重要度：高</b>}</header>
+          <ComplianceCheck compact context={payload.artifact_type === 'consistency_check' ? 'consistency' : 'draft'} />
           <div className="wk-answer-blocks">
             {payload.blocks.map((block, index) => <section className={block.tone || 'neutral'} key={`${block.title}-${index}`}><h3>{block.title}</h3>{block.content && (payload.artifact_type === 'draft' && ['ドラフト本文', '書類案本文'].includes(block.title) ? <textarea className="wk-draft-editor" aria-label="書類案本文" onChange={(event) => setEditedDraft(event.target.value)} value={editedDraft} /> : <p>{block.content}</p>)}{block.items && <ul>{block.items.map((item) => <li key={item}><i>✓</i>{item}</li>)}</ul>}</section>)}
           </div>
@@ -1056,6 +1080,7 @@ export function ApprovalsView({ caseId, currentUser, onChanged }: { caseId: stri
       {error && <InlineError text={error} />}
       <div className="wk-filter-tabs">{([['all', 'すべて'], ['pending', '承認待ち'], ['approved', '処理済み']] as const).map(([id, label]) => <button className={filter === id ? 'active' : ''} key={id} onClick={() => setFilter(id)} type="button">{label}<span>{id === 'all' ? approvals.length : approvals.filter((item) => id === 'approved' ? ['approved', 'executed'].includes(item.status) : item.status === id).length}</span></button>)}</div>
       {!canApprove && <div className="wk-role-info"><span>i</span><p><strong>現在の権限：{roleLabel(currentUser?.role || 'viewer')}</strong>この権限では承認・差戻しを実行できません。</p></div>}
+      <ComplianceCheck context="approval" currentUser={currentUser} />
       <div className="wk-approval-list">
         {visible.map((approval) => (
           <article key={approval.id}>
@@ -1180,8 +1205,8 @@ function formatTime(value: string) { return new Intl.DateTimeFormat('ja-JP', { h
 function formatDeadlineDate(value: string) { return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' }).format(new Date(`${value}T00:00:00`)) }
 function localDateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(value)) }
-function auditLabel(event: string) { return ({ 'case.created': '案件を作成', 'case.updated': '案件を更新', 'case.member_updated': '担当者権限を変更', 'document.uploaded': '資料を登録', 'document.viewed': '資料を閲覧', 'document.deleted': '資料を削除', 'document.parse_failed': '資料の読取失敗', 'search.completed': '案件資料を検索', 'generation.completed': '作成処理を実行', 'draft.saved': '書類案を保存', 'finding.updated': '確認事項を更新', 'message.feedback': '回答を評価', 'approval.approved': '作成結果を承認', 'approval.rejected': '作成結果を差戻し', 'deadline.created': '期限を登録', 'deadline.completed': '期限を完了', 'deadline.reopened': '期限を未完了に戻す', 'decision_chat.sent': '決裁者とのチャットを送信', 'connector.read': '連携先を参照', 'connector.read_failed': '連携先の参照失敗', 'connector.write_requested': '連携操作の承認を依頼', 'connector.write_failed': '連携操作に失敗', 'connector.configured': '連携設定を変更' } as Record<string, string>)[event] || event }
-function auditTargetLabel(target: string) { return ({ case: '案件', document: '資料', message: '作成結果', draft: '書類案', finding: '確認事項', deadline: '期限', decision_chat: '決裁者とのチャット', user: '利用者', connector: '連携設定', connector_action: '連携操作' } as Record<string, string>)[target] || target }
+function auditLabel(event: string) { return ({ 'case.created': '案件を作成', 'case.updated': '案件を更新', 'case.member_updated': '担当者権限を変更', 'document.uploaded': '資料を登録', 'document.viewed': '資料を閲覧', 'document.deleted': '資料を削除', 'document.parse_failed': '資料の読取失敗', 'search.completed': '案件資料を検索', 'generation.completed': '作成処理を実行', 'draft.saved': '書類案を保存', 'finding.updated': '確認事項を更新', 'message.feedback': '回答を評価', 'approval.approved': '作成結果を承認', 'approval.rejected': '作成結果を差戻し', 'deadline.created': '期限を登録', 'deadline.completed': '期限を完了', 'deadline.reopened': '期限を未完了に戻す', 'decision_chat.sent': '案件チャットを送信', 'connector.read': '連携先を参照', 'connector.read_failed': '連携先の参照失敗', 'connector.write_requested': '連携操作の承認を依頼', 'connector.write_failed': '連携操作に失敗', 'connector.configured': '連携設定を変更' } as Record<string, string>)[event] || event }
+function auditTargetLabel(target: string) { return ({ case: '案件', document: '資料', message: '作成結果', draft: '書類案', finding: '確認事項', deadline: '期限', decision_chat: '案件チャット', user: '利用者', connector: '連携設定', connector_action: '連携操作' } as Record<string, string>)[target] || target }
 function errorMessage(caught: unknown) { return caught instanceof Error ? caught.message : '処理に失敗しました。' }
 
 function WorkspaceIcon({ name }: { name: WorkspaceIconName }) {
@@ -1192,7 +1217,6 @@ function WorkspaceIcon({ name }: { name: WorkspaceIconName }) {
     documents: <><path d="M6 3h9l3 3v15H6z" /><path d="M15 3v4h4M9 11h6M9 15h6" /></>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18M8 14h3M8 17h6" /></>,
     chat: <><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /><path d="M7 10h10M7 14h6" /></>,
-    shield: <><path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></>,
     check: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></>,
     history: <><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5" /><path d="M4 4v4.5h4.5M12 7v5l3 2" /></>,
   }
