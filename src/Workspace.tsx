@@ -481,7 +481,8 @@ function NewCaseForm({ onCreated }: { onCreated: (caseId: string) => void }) {
 
 function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; currentUser: User | null; onChanged: () => void }) {
   const [deadlines, setDeadlines] = useState<Deadline[]>([])
-  const [monthCursor, setMonthCursor] = useState(() => new Date('2026-09-01T00:00:00'))
+  const [weekCursor, setWeekCursor] = useState(() => new Date())
+  const [googleSyncPreview, setGoogleSyncPreview] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [dueDate, setDueDate] = useState('2026-09-25')
@@ -494,7 +495,6 @@ function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; curr
     try {
       const next = await api.deadlines(caseId)
       setDeadlines(next)
-      if (next[0]) setMonthCursor(new Date(`${next[0].due_date}T00:00:00`))
       setError('')
     } catch (caught) {
       setError(errorMessage(caught))
@@ -506,17 +506,15 @@ function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; curr
     return () => window.clearTimeout(timer)
   }, [load])
 
-  const cells = useMemo(() => {
-    const year = monthCursor.getFullYear()
-    const month = monthCursor.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const offset = (firstDay.getDay() + 6) % 7
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    return Array.from({ length: Math.ceil((offset + daysInMonth) / 7) * 7 }, (_, index) => {
-      const day = index - offset + 1
-      return day < 1 || day > daysInMonth ? null : new Date(year, month, day)
+  const weekDays = useMemo(() => {
+    const firstDay = new Date(weekCursor.getFullYear(), weekCursor.getMonth(), weekCursor.getDate())
+    firstDay.setDate(firstDay.getDate() - ((firstDay.getDay() + 6) % 7))
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(firstDay)
+      date.setDate(firstDay.getDate() + index)
+      return date
     })
-  }, [monthCursor])
+  }, [weekCursor])
 
   const openDeadlines = deadlines.filter((deadline) => deadline.status === 'open')
   const overdueCount = openDeadlines.filter((deadline) => deadline.due_date < localDateKey(new Date())).length
@@ -550,8 +548,8 @@ function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; curr
     }
   }
 
-  function moveMonth(offset: number) {
-    setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+  function moveWeek(offset: number) {
+    setWeekCursor((current) => new Date(current.getFullYear(), current.getMonth(), current.getDate() + offset * 7))
   }
 
   return (
@@ -564,17 +562,24 @@ function CalendarView({ caseId, currentUser, onChanged }: { caseId: string; curr
       <div className="wk-deadline-summary"><span><strong>{openDeadlines.length}</strong> 未完了</span><span className={overdueCount ? 'overdue' : ''}><strong>{overdueCount}</strong> 期限超過</span><span><strong>{deadlines.filter((deadline) => deadline.status === 'completed').length}</strong> 完了</span></div>
       <div className="wk-calendar-layout">
         <section className="wk-section wk-calendar-card">
-          <header className="wk-calendar-header"><button aria-label="前月" className="wk-secondary wk-icon-button" onClick={() => moveMonth(-1)} type="button">‹</button><h2>{monthCursor.getFullYear()}年{monthCursor.getMonth() + 1}月</h2><button aria-label="翌月" className="wk-secondary wk-icon-button" onClick={() => moveMonth(1)} type="button">›</button></header>
-          <div className="wk-calendar-weekdays">{['月', '火', '水', '木', '金', '土', '日'].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="wk-calendar-grid">
-            {cells.map((date, index) => {
-              const key = date ? localDateKey(date) : `empty-${index}`
-              const dayDeadlines = date ? deadlines.filter((deadline) => deadline.due_date === key) : []
-              return <div className={`wk-calendar-day ${date ? '' : 'empty'}`} key={key}>{date && <><time>{date.getDate()}</time>{dayDeadlines.map((deadline) => <button className={`wk-calendar-event ${deadline.status}`} key={deadline.id} onClick={() => void toggleDeadline(deadline)} title={`${deadline.title}（クリックで${deadline.status === 'completed' ? '未完了に戻す' : '完了にする'}）`} type="button"><i />{deadline.title}</button>)}</>}</div>
-            })}
+          <header className="wk-calendar-header"><button aria-label="前の週" className="wk-secondary wk-icon-button" onClick={() => moveWeek(-1)} type="button">‹</button><h2>{formatWeekRange(weekDays[0], weekDays[6])}</h2><button className="wk-secondary wk-calendar-today" onClick={() => setWeekCursor(new Date())} type="button">今週</button><button aria-label="次の週" className="wk-secondary wk-icon-button" onClick={() => moveWeek(1)} type="button">›</button></header>
+          <div className="wk-calendar-scroll" aria-label="週カレンダー" role="region" tabIndex={0}>
+            <div className="wk-calendar-grid">
+              {weekDays.map((date) => {
+                const key = localDateKey(date)
+                const dayDeadlines = deadlines.filter((deadline) => deadline.due_date === key)
+                const today = key === localDateKey(new Date())
+                return <div className={`wk-calendar-day ${today ? 'today' : ''}`} key={key}><header><span>{['日', '月', '火', '水', '木', '金', '土'][date.getDay()]}</span><time>{date.getDate()}</time></header><div className="wk-calendar-day-events">{dayDeadlines.map((deadline) => <button className={`wk-calendar-event ${deadline.status}`} key={deadline.id} onClick={() => void toggleDeadline(deadline)} title={`${deadline.title}（クリックで${deadline.status === 'completed' ? '未完了に戻す' : '完了にする'}）`} type="button"><i /><span>{deadline.title}</span></button>)}</div></div>
+              })}
+            </div>
           </div>
         </section>
         <aside className="wk-calendar-side">
+          <section className="wk-google-sync-card" aria-label="Googleカレンダー同期設定のモック">
+            <span aria-hidden="true" className="wk-google-mark">G</span>
+            <div className="wk-google-sync-copy"><div><strong>Googleカレンダー</strong><small>{googleSyncPreview ? '同期イメージ ON' : '未設定'}</small></div><p>案件の期限をGoogleカレンダーに表示する設定</p><span>画面モックです。実際の接続・同期は行いません。</span></div>
+            <button aria-checked={googleSyncPreview} aria-label="Googleカレンダー同期の表示イメージを切り替え" className={`wk-sync-toggle ${googleSyncPreview ? 'on' : ''}`} onClick={() => setGoogleSyncPreview((enabled) => !enabled)} role="switch" type="button"><i /></button>
+          </section>
           {showForm && <section className="wk-section wk-deadline-form-card"><header><div><p className="wk-eyebrow">新しい期限</p><h2>締め切りを登録</h2></div></header><form className="wk-deadline-form" onSubmit={(event) => void createDeadline(event)}><label><span>期限名</span><input onChange={(event) => setTitle(event.target.value)} placeholder="例：決裁者の確認" required value={title} /></label><label><span>期日</span><input onChange={(event) => setDueDate(event.target.value)} required type="date" value={dueDate} /></label><label><span>区分</span><select onChange={(event) => setKind(event.target.value as Deadline['kind'])} value={kind}>{deadlineKindOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>メモ <small>任意</small></span><textarea onChange={(event) => setNote(event.target.value)} placeholder="確認事項や完了条件" value={note} /></label><button className="wk-primary" disabled={busy} type="submit">{busy ? '登録中…' : '期限を登録'}</button></form></section>}
           <section className="wk-section wk-deadline-list-card"><header><div><p className="wk-eyebrow">締め切り一覧</p><h2>この案件の期限</h2></div><span className="wk-section-count">{deadlines.length}件</span></header><div className="wk-deadline-list">{deadlines.map((deadline) => <article className={deadline.status === 'completed' ? 'completed' : deadline.due_date < localDateKey(new Date()) ? 'overdue' : ''} key={deadline.id}><button aria-label={`${deadline.title}を${deadline.status === 'completed' ? '未完了に戻す' : '完了にする'}`} className="wk-deadline-check" onClick={() => void toggleDeadline(deadline)} type="button">{deadline.status === 'completed' ? '✓' : ''}</button><div><strong>{deadline.title}</strong><small>{formatDeadlineDate(deadline.due_date)}・{deadline.owner_name}・{deadlineKindLabel(deadline.kind)}</small>{deadline.note && <p>{deadline.note}</p>}</div></article>)}{!deadlines.length && <EmptyState title="期限は登録されていません" text="期限を登録すると、担当者と締め切りを共有できます。" />}</div></section>
         </aside>
@@ -615,7 +620,14 @@ function CaseChatView({ caseId, currentUser }: { caseId: string; currentUser: Us
       {error && <InlineError text={error} />}
       <section className="wk-chat-card">
         <header className="wk-decision-chat-header"><div><strong>案件参加者 {members.length}人</strong><small>{members.map((member) => `${member.display_name}（${roleLabel(member.role)}）`).join('・') || '参加者情報を読み込んでいます'}</small></div><span className="wk-chat-scope">案件内のみ</span></header>
-        <div aria-live="polite" className="wk-decision-chat-messages">{messages.map((message) => <article className={message.author_id === currentUser?.id ? 'mine' : ''} key={message.id}><div><header><strong>{message.author_name}</strong><small>{roleLabel(message.author_role)}・{formatTime(message.created_at)}</small></header><p className="wk-chat-bubble-text">{message.body}</p></div></article>)}{!messages.length && <EmptyState title="まだメッセージはありません" text="案件参加者へ確認したい内容を送信できます。" />}</div>
+        <div aria-live="polite" className="wk-decision-chat-messages">{messages.map((message) => {
+          const mine = message.author_id === currentUser?.id
+          return <article className={mine ? 'mine' : 'received'} key={message.id}>
+            {!mine && <span aria-hidden="true" className="wk-chat-avatar">{message.author_name.trim().slice(0, 1)}</span>}
+            <div className="wk-chat-message-body"><header><strong>{message.author_name}</strong><small>{roleLabel(message.author_role)}</small></header><p className="wk-chat-bubble-text">{message.body}</p></div>
+            <time className="wk-chat-time">{formatTime(message.created_at)}</time>
+          </article>
+        })}{!messages.length && <EmptyState title="まだメッセージはありません" text="案件参加者へ確認したい内容を送信できます。" />}</div>
         <form className="wk-decision-chat-composer" onSubmit={(event) => void send(event)}><textarea aria-label="案件参加者へのメッセージ" disabled={!canSend || sending} onChange={(event) => setBody(event.target.value)} placeholder={canSend ? '案件参加者へメッセージを入力' : '閲覧権限ではメッセージを送信できません'} value={body} /><button className="wk-primary" disabled={!canSend || sending || !body.trim()} type="submit">送信</button></form>
       </section>
     </div>
@@ -1182,6 +1194,14 @@ function messageStatusLabel(status: string) { return ({ review_required: '未確
 function formatDate(value: string) { return new Intl.DateTimeFormat('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
 function formatTime(value: string) { return new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
 function formatDeadlineDate(value: string) { return new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' }).format(new Date(`${value}T00:00:00`)) }
+function formatWeekRange(start: Date, end: Date) {
+  const year = start.getFullYear()
+  const endYear = end.getFullYear()
+  const startLabel = `${year}年${start.getMonth() + 1}月${start.getDate()}日`
+  if (year !== endYear) return `${startLabel}〜${endYear}年${end.getMonth() + 1}月${end.getDate()}日`
+  if (start.getMonth() !== end.getMonth()) return `${startLabel}〜${end.getMonth() + 1}月${end.getDate()}日`
+  return `${startLabel}〜${end.getDate()}日`
+}
 function localDateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(value)) }
 function auditLabel(event: string) { return ({ 'case.created': '案件を作成', 'case.updated': '案件を更新', 'case.member_updated': '担当者権限を変更', 'document.uploaded': '資料を登録', 'document.viewed': '資料を閲覧', 'document.deleted': '資料を削除', 'document.parse_failed': '資料の読取失敗', 'search.completed': '案件資料を検索', 'generation.completed': '作成処理を実行', 'draft.saved': '書類案を保存', 'finding.updated': '確認事項を更新', 'message.feedback': '回答を評価', 'approval.approved': '作成結果を承認', 'approval.rejected': '作成結果を差戻し', 'deadline.created': '期限を登録', 'deadline.completed': '期限を完了', 'deadline.reopened': '期限を未完了に戻す', 'decision_chat.sent': '案件チャットを送信', 'connector.read': '連携先を参照', 'connector.read_failed': '連携先の参照失敗', 'connector.write_requested': '連携操作の承認を依頼', 'connector.write_failed': '連携操作に失敗', 'connector.configured': '連携設定を変更' } as Record<string, string>)[event] || event }
